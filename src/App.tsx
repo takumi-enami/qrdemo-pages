@@ -1,33 +1,121 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
+import { useCallback, useEffect, useState } from 'react'
 import './App.css'
 
+type Sample = {
+  sample_code: string
+  title: string
+  current_step: string
+  updated_at: string
+}
+
 function App() {
-  const [count, setCount] = useState(0)
+  const [samples, setSamples] = useState<Sample[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchToken = useCallback(async () => {
+    try {
+      const res = await fetch('/api/token', {
+        method: 'POST',
+        credentials: 'include',
+      })
+
+      if (!res.ok) {
+        throw new Error(`Failed to create session (${res.status})`)
+      }
+
+      return true
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unexpected error')
+      return false
+    }
+  }, [])
+
+  const loadSamples = useCallback(
+    async ({
+      ensureToken,
+      retryOn401,
+    }: {
+      ensureToken: boolean
+      retryOn401: boolean
+    }) => {
+      setLoading(true)
+      setError(null)
+      try {
+        if (ensureToken) {
+          const ok = await fetchToken()
+          if (!ok) {
+            return
+          }
+        }
+
+        let res = await fetch('/api/samples?limit=10', {
+          credentials: 'include',
+        })
+
+        if (res.status === 401 && retryOn401) {
+          const ok = await fetchToken()
+          if (!ok) {
+            return
+          }
+          res = await fetch('/api/samples?limit=10', {
+            credentials: 'include',
+          })
+        }
+
+        if (!res.ok) {
+          throw new Error(`Failed to load samples (${res.status})`)
+        }
+
+        const data = await res.json()
+        setSamples(Array.isArray(data) ? data : [])
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Unexpected error')
+      } finally {
+        setLoading(false)
+      }
+    },
+    [fetchToken]
+  )
+
+  useEffect(() => {
+    loadSamples({ ensureToken: true, retryOn401: false })
+  }, [loadSamples])
 
   return (
     <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
+      <h1>QRDEMO Samples</h1>
       <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
+        <button
+          type="button"
+          onClick={() => loadSamples({ ensureToken: false, retryOn401: true })}
+          disabled={loading}
+        >
+          Reload
         </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
+        {loading ? <p>Loading...</p> : null}
+        {error ? <p role="alert">{error}</p> : null}
+        <table>
+          <thead>
+            <tr>
+              <th>sample_code</th>
+              <th>title</th>
+              <th>current_step</th>
+              <th>updated_at</th>
+            </tr>
+          </thead>
+          <tbody>
+            {samples.map((sample) => (
+              <tr key={sample.sample_code}>
+                <td>{sample.sample_code}</td>
+                <td>{sample.title}</td>
+                <td>{sample.current_step}</td>
+                <td>{sample.updated_at}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
     </>
   )
 }
