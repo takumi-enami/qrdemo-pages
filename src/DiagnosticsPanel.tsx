@@ -1,118 +1,173 @@
-import { useRef, useState } from 'react'
-import type { KeyboardEvent } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 type HistoryItem = {
-  id: string
-  text: string
-  at: number
-}
+  id: string;
+  text: string;
+  at: number; // epoch ms
+};
 
-const makeId = () => {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return crypto.randomUUID()
+function formatLocalTime(ms: number): string {
+  try {
+    return new Date(ms).toLocaleString();
+  } catch {
+    return String(ms);
   }
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
 
-function DiagnosticsPanel() {
-  const [inputValue, setInputValue] = useState('')
-  const [history, setHistory] = useState<HistoryItem[]>([])
-  const [copiedId, setCopiedId] = useState<string | null>(null)
-  const inputRef = useRef<HTMLInputElement | null>(null)
+function makeId(): string {
+  // crypto.randomUUID ãŒä½¿ãˆã‚‹ç’°å¢ƒãªã‚‰ãã‚Œã‚’ä½¿ã†
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
 
-  const handleConfirm = () => {
-    const trimmed = inputValue.trim()
-    if (!trimmed) {
-      return
+export default function DiagnosticsPanel() {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [value, setValue] = useState<string>("");
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const description = useMemo(
+    () => [
+      "å¤šãã®QRãƒªãƒ¼ãƒ€ãƒ¼ã¯ã‚­ãƒ¼ãƒœãƒ¼ãƒ‰ã¨ã—ã¦å‹•ä½œã—ã€èª­ã¿å–ã‚ŠçµæœãŒå…¥åŠ›æ¬„ã«æ–‡å­—åˆ—ã¨ã—ã¦å…¥åŠ›ã•ã‚Œã€æœ€å¾Œã«EnterãŒé€ä¿¡ã•ã‚Œã‚‹ã“ã¨ãŒå¤šã„ã§ã™ã€‚",
+      "ã“ã®ç”»é¢ã§ã¯å…¥åŠ›æ¬„ã«ãƒ•ã‚©ãƒ¼ã‚«ã‚¹ã—ãŸçŠ¶æ…‹ã§QRã‚’èª­ã¿å–ã‚Šã€Enterã§ç¢ºå®šã™ã‚‹ã¨å±¥æ­´ã«è¿½åŠ ã•ã‚Œã¾ã™ã€‚"
+    ],
+    []
+  );
+
+  useEffect(() => {
+    // åˆæœŸãƒ•ã‚©ãƒ¼ã‚«ã‚¹ï¼ˆé‚ªé­”ãªã‚‰å‰Šé™¤OKï¼‰
+    inputRef.current?.focus();
+  }, []);
+
+  async function copyToClipboard(text: string, id: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedId(id);
+      window.setTimeout(() => setCopiedId((prev) => (prev === id ? null : prev)), 1200);
+    } catch {
+      // clipboardãŒä½¿ãˆãªã„å ´åˆã®ãƒ•ã‚©ãƒ¼ãƒ«ãƒãƒƒã‚¯
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.left = "-9999px";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+        setCopiedId(id);
+        window.setTimeout(() => setCopiedId((prev) => (prev === id ? null : prev)), 1200);
+      } catch {
+        // ä½•ã‚‚ã—ãªã„ï¼ˆUIã¯å£Šã•ãªã„ï¼‰
+      }
     }
+  }
+
+  function addHistory(text: string) {
+    const trimmed = text.trim();
+    if (!trimmed) return;
 
     const item: HistoryItem = {
       id: makeId(),
       text: trimmed,
       at: Date.now(),
-    }
+    };
 
-    setHistory((prev) => [item, ...prev])
-  }
-
-  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key !== 'Enter') {
-      return
-    }
-    event.preventDefault()
-    handleConfirm()
-  }
-
-  const handleCopy = async (item: HistoryItem) => {
-    try {
-      await navigator.clipboard.writeText(item.text)
-      setCopiedId(item.id)
-      window.setTimeout(() => {
-        setCopiedId((current) => (current === item.id ? null : current))
-      }, 1500)
-    } catch {
-      setCopiedId(null)
-    }
+    setHistory((prev) => [item, ...prev]);
+    setValue("");
   }
 
   return (
-    <div className="diagnostics-panel">
-      <p className="lead">
-        ‘½‚­‚ÌQRƒŠ[ƒ_[‚ÍƒL[ƒ{[ƒh‚Æ‚µ‚Ä“®ì‚µA“Ç‚İæ‚èŒ‹‰Ê‚ª“ü—Í—“‚É•¶š—ñ‚Æ‚µ‚Ä“ü—Í‚³‚êAÅŒã‚ÉEnter‚ª‘—M‚³‚ê‚é‚±‚Æ‚ª‘½‚¢
-      </p>
-      <p className="lead">
-        ‚±‚Ì‰æ–Ê‚Å‚Í“ü—Í—“‚ÉƒtƒH[ƒJƒX‚µ‚½ó‘Ô‚ÅQR‚ğ“Ç‚İæ‚èAEnter‚ÅŠm’è‚·‚é‚Æ—š—ğ‚É’Ç‰Á‚³‚ê‚é
-      </p>
+    <div style={{ padding: 16, maxWidth: 980, margin: "0 auto" }}>
+      <h2 style={{ margin: "8px 0 12px" }}>Diagnostics</h2>
 
-      <div className="diag-card">
-        <div className="diag-header">
-          <h2>“ü—ÍƒeƒXƒg</h2>
-        </div>
-        <input
-          ref={inputRef}
-          className="diag-input"
-          type="text"
-          placeholder="‚±‚±‚ÉƒtƒH[ƒJƒX‚µ‚ÄQR‚ğ“Ç‚İæ‚Á‚Ä‚­‚¾‚³‚¢"
-          value={inputValue}
-          onChange={(event) => setInputValue(event.target.value)}
-          onKeyDown={handleKeyDown}
-        />
-        <div className="diag-actions">
-          <button type="button" onClick={() => setInputValue('')}>ƒNƒŠƒA</button>
-          <button type="button" onClick={() => inputRef.current?.focus()}>ƒtƒH[ƒJƒX</button>
-        </div>
+      <div style={{ padding: 12, border: "1px solid #ddd", borderRadius: 8, marginBottom: 16 }}>
+        {description.map((line, idx) => (
+          <p key={idx} style={{ margin: idx === 0 ? 0 : "8px 0 0" }}>
+            {line}
+          </p>
+        ))}
       </div>
 
-      <div className="diag-card">
-        <div className="diag-header">
-          <h2>—š—ğ</h2>
-          <button type="button" onClick={() => setHistory([])} disabled={history.length === 0}>
-            —š—ğ‚ğ‘SÁ‹
-          </button>
-        </div>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12 }}>
+        <input
+          ref={inputRef}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") addHistory(value);
+          }}
+          placeholder="ã“ã“ã«ãƒ•ã‚©ãƒ¼ã‚«ã‚¹ã—ã¦QRã‚’èª­ã¿å–ã£ã¦ãã ã•ã„"
+          style={{
+            flex: 1,
+            padding: "10px 12px",
+            border: "1px solid #ccc",
+            borderRadius: 8,
+            fontSize: 16,
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => setValue("")}
+          style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid #ccc" }}
+        >
+          ã‚¯ãƒªã‚¢
+        </button>
+        <button
+          type="button"
+          onClick={() => inputRef.current?.focus()}
+          style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid #ccc" }}
+        >
+          ãƒ•ã‚©ãƒ¼ã‚«ã‚¹
+        </button>
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+        <h3 style={{ margin: 0 }}>å…¥åŠ›å±¥æ­´</h3>
+        <button
+          type="button"
+          onClick={() => setHistory([])}
+          style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #ccc" }}
+        >
+          å±¥æ­´ã‚’å…¨æ¶ˆå»
+        </button>
+      </div>
+
+      <div style={{ border: "1px solid #ddd", borderRadius: 8, overflow: "hidden" }}>
         {history.length === 0 ? (
-          <p className="muted">‚Ü‚¾—š—ğ‚ª‚ ‚è‚Ü‚¹‚ñ</p>
+          <div style={{ padding: 12, color: "#666" }}>ã¾ã å±¥æ­´ã¯ã‚ã‚Šã¾ã›ã‚“ã€‚å…¥åŠ›ã—ã¦Enterã§è¿½åŠ ã—ã¦ãã ã•ã„ã€‚</div>
         ) : (
-          <ul className="history-list">
-            {history.map((item) => (
-              <li key={item.id} className="history-item">
-                <div className="history-main">
-                  <span className="history-time">{new Date(item.at).toLocaleString()}</span>
-                  <span className="history-text">{item.text}</span>
-                </div>
-                <div className="history-actions">
-                  <button type="button" onClick={() => handleCopy(item)}>
-                    ƒRƒs[
-                  </button>
-                  {copiedId === item.id ? <span className="copy-note">ƒRƒs[‚µ‚Ü‚µ‚½</span> : null}
-                </div>
-              </li>
-            ))}
-          </ul>
+          history.map((h) => (
+            <div
+              key={h.id}
+              style={{
+                display: "flex",
+                gap: 10,
+                alignItems: "center",
+                padding: 12,
+                borderTop: "1px solid #eee",
+              }}
+            >
+              <div style={{ width: 180, fontSize: 12, color: "#666", flexShrink: 0 }}>
+                {formatLocalTime(h.at)}
+              </div>
+              <div style={{ flex: 1, wordBreak: "break-all" }}>{h.text}</div>
+              <button
+                type="button"
+                onClick={() => copyToClipboard(h.text, h.id)}
+                style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #ccc" }}
+              >
+                ã‚³ãƒ”ãƒ¼
+              </button>
+              <div style={{ width: 70, fontSize: 12, color: "#2a7" }}>
+                {copiedId === h.id ? "copied" : ""}
+              </div>
+            </div>
+          ))
         )}
       </div>
     </div>
-  )
+  );
 }
-
-export default DiagnosticsPanel
