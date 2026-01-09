@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import './App.css'
+import DiagnosticsPanel from './DiagnosticsPanel'
 
 type Sample = {
   sample_code: string
@@ -8,10 +9,13 @@ type Sample = {
   updated_at: string
 }
 
+type View = 'samples' | 'diagnostics'
+
 function App() {
   const [samples, setSamples] = useState<Sample[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [view, setView] = useState<View>('samples')
 
   const fetchToken = useCallback(async () => {
     try {
@@ -84,38 +88,58 @@ function App() {
 
   return (
     <>
-      <h1>QRDEMO Samples</h1>
-      <div className="card">
+      <h1>{view === 'samples' ? 'QRDEMO Samples' : 'QRDEMO Diagnostics'}</h1>
+      <div className="tabs">
         <button
           type="button"
-          onClick={() => loadSamples({ ensureToken: false, retryOn401: true })}
-          disabled={loading}
+          className={`tab-button${view === 'samples' ? ' active' : ''}`}
+          onClick={() => setView('samples')}
         >
-          Reload
+          Samples
         </button>
-        {loading ? <p>Loading...</p> : null}
-        {error ? <p role="alert">{error}</p> : null}
-        <table>
-          <thead>
-            <tr>
-              <th>sample_code</th>
-              <th>title</th>
-              <th>current_step</th>
-              <th>updated_at</th>
-            </tr>
-          </thead>
-          <tbody>
-            {samples.map((sample) => (
-              <tr key={sample.sample_code}>
-                <td>{sample.sample_code}</td>
-                <td>{sample.title}</td>
-                <td>{sample.current_step}</td>
-                <td>{sample.updated_at}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <button
+          type="button"
+          className={`tab-button${view === 'diagnostics' ? ' active' : ''}`}
+          onClick={() => setView('diagnostics')}
+        >
+          Diagnostics
+        </button>
       </div>
+      {view === 'samples' ? (
+        <div className="card">
+          <button
+            type="button"
+            onClick={() => loadSamples({ ensureToken: false, retryOn401: true })}
+            disabled={loading}
+          >
+            Reload
+          </button>
+          {loading ? <p>Loading...</p> : null}
+          {error ? <p role="alert">{error}</p> : null}
+          <table>
+            <thead>
+              <tr>
+                <th>sample_code</th>
+                <th>title</th>
+                <th>current_step</th>
+                <th>updated_at</th>
+              </tr>
+            </thead>
+            <tbody>
+              {samples.map((sample) => (
+                <tr key={sample.sample_code}>
+                  <td>{sample.sample_code}</td>
+                  <td>{sample.title}</td>
+                  <td>{sample.current_step}</td>
+                  <td>{sample.updated_at}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <DiagnosticsPanel />
+      )}
     </>
   )
 }
