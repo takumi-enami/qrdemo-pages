@@ -13,8 +13,8 @@ export default function App() {
       <Route path="/prep" element={<StepPage step="PREP" title="前処理" />} />
       <Route path="/weigh" element={<StepPage step="WEIGH" title="秤量" />} />
       <Route path="/analyze" element={<StepPage step="ANALYZE" title="分析" />} />
-      <Route path="/report" element={<StepPage step="REPORT" title="報告" />} />
       <Route path="/certify" element={<StepPage step="CERTIFY" title="証明" />} />
+      <Route path="/report" element={<StepPage step="REPORT" title="報告" />} />
       <Route path="/settings/devices" element={<SettingsDevicesPage />} />
       <Route path="/settings/diagnostics" element={<SettingsDiagnosticsPage />} />
       <Route path="/diagnostics" element={<Navigate to="/settings/diagnostics" replace />} />

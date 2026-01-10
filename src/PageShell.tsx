@@ -13,8 +13,8 @@ const navItems: NavItem[] = [
   { label: "前処理", to: "/prep" },
   { label: "秤量", to: "/weigh" },
   { label: "分析", to: "/analyze" },
-  { label: "報告", to: "/report" },
   { label: "証明", to: "/certify" },
+  { label: "報告", to: "/report" },  
 ];
 
 type PageShellProps = {
