@@ -9,13 +9,16 @@
 
 ## APIs used by frontend
 - POST `/api/token` : establishes session cookie (use fetch with `credentials: 'include'`)
-- GET `/api/samples?limit=10` : returns `{ ok: true, data: [...] }`
+- GET `/api/samples?limit=50` : returns `{ ok: true, data: [...] }`
 - Error format: `{ ok: false, error: { code, message, details? } }`
+- POST `/api/samples/:id/advance` : expects `{ station_id?, note?, meta?, expected_version }`
+- POST `/api/samples/:id/rollback` : expects `{ station_id?, note?, meta?, expected_version }`
 
 ## Notes
 - SPA routing is enabled on Pages.
 - `index.html` cache should not be stale (headers added).
 - `/api/*` should be handled by Workers on the same origin; Pages should only serve the frontend.
+- Step pages: `/receive`, `/prep`, `/weigh`, `/analyze`, `/report`, `/certify`.
 
 ## Deploy (Cloudflare Pages)
 ```bash
