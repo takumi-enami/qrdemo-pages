@@ -11,6 +11,7 @@ node_modules
 dist
 dist-ssr
 *.local
+repo-tree.txt
 
 # Editor directories and files
 .vscode/*
@@ -22,3 +23,13 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# OpenAI API responses / temp artifacts
+logs/
+tmp_*.json
+tmp_*.js
+tmp_*.cjs
+
+# Generated response artifacts (safety)
+*.response.json
+

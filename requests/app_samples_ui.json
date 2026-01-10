@@ -1,0 +1,13 @@
+{
+  "model": "gpt-5.2",
+  "input": [
+    {
+      "role": "system",
+      "content": "You are a senior React+TypeScript engineer. Output ONLY the complete file content of src/App.tsx. No markdown. No explanations."
+    },
+    {
+      "role": "user",
+      "content": "Improve ONLY the Samples (検体) list UI in src/App.tsx while keeping behavior unchanged.\n\nKeep existing behavior:\n- On startup: POST /api/token (credentials: include) then GET /api/samples (credentials: include).\n- Reload button exists and refetches.\n- Diagnostics page remains as is.\n- Must continue using Layout from \"./Layout\" with props pageTitle and onHome.\n- Inline styles only. No external UI libraries.\n- Do not call Supabase directly.\n\nJapanese UI terms must remain:\n- Pages: 検体 / 機器テスト\n- Reload: 再読み込み\n- Headers: 検体コード / タイトル / 工程 / 更新日時 / ロック\n\nUI improvements (Samples page):\n1) 工程 (current_step) should be displayed as a badge/pill with subtle background and readable text. Avoid relying on CSS files; use inline styles.\n2) ロック (locked) display should use wording aligned with: ロック / 操作制限 / 保留. Recommended:\n   - locked=true: show \"ロック\" with small sublabel like \"操作制限\" or \"保留\" (pick one, or show \"ロック\" only if you prefer). Keep it compact.\n   - locked=false: show \"—\" or blank (but keep table consistent).\n3) 更新日時 formatting must be robust:\n   - If value is null/empty, show \"\" or \"—\".\n   - Otherwise parse via new Date(String(v)) and show toLocaleString(). If invalid date, show the original string.\n4) Table styling:\n   - Full width, readable spacing, header row with light background, thin borders.\n   - Keep columns reasonably sized (code narrow, title flexible).\n5) Keep navigation buttons blue with white text.\n\nTypeScript constraints:\n- Do not use JSX.Element return type annotation.\n- Avoid default React import.\n- If importing types, use import type.\n\nOutput ONLY the full updated content of src/App.tsx."
+    }
+  ]
+}

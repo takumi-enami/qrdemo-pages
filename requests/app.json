@@ -1,0 +1,14 @@
+{
+  "model": "gpt-5.2",
+  "input": [
+    {
+      "role": "system",
+      "content": "You are a senior React+TypeScript engineer. Output ONLY the complete file content of src/App.tsx. No markdown. No explanations."
+    },
+    {
+      "role": "user",
+      "content": "Create a complete src/App.tsx for a Vite + React + TypeScript app with the following constraints.\n\nARCHITECTURE:\n- Use Layout from \"./Layout\".\n- Use DiagnosticsPanel from \"./DiagnosticsPanel\".\n- Frontend must communicate only via Workers endpoints (e.g. /api/token, /api/samples). Do NOT access Supabase directly.\n\nUI REQUIREMENTS:\n- Overall layout is provided by <Layout>.\n- Layout props:\n  - pageTitle: string\n  - onHome(): navigate to Samples page\n- Inside the card area:\n  - Show navigation buttons: \"Samples\" and \"Diagnostics\".\n  - Buttons must have blue background and white text.\n  - Active page button should be slightly darker.\n  - Hover state should be slightly darker.\n- The page title is passed to Layout.pageTitle and appears at the top-left inside the card.\n\nBEHAVIOR REQUIREMENTS:\n- On app startup:\n  1) POST /api/token with credentials: include\n  2) Then GET /api/samples with credentials: include\n- Samples page:\n  - Show Reload button to re-fetch samples.\n  - Render a table with columns:\n    - sample_code\n    - title\n    - current_step\n    - updated_at (formatted to local time string)\n- Diagnostics page:\n  - Render <DiagnosticsPanel /> inside Layout.\n\nSTATE & NAVIGATION:\n- App.tsx manages which page is active (Samples | Diagnostics).\n- Clicking \"QRDemo\" in Layout (onHome) always navigates back to Samples.\n\nIMPLEMENTATION RULES:\n- Use React hooks (useState, useEffect, useCallback, etc.).\n- Use inline styles only (no external UI libraries).\n- Avoid unused imports (noUnusedLocals is enabled).\n- Keep the code simple and readable.\n\nOutput ONLY the full content of src/App.tsx."
+    }
+  ]
+}
+

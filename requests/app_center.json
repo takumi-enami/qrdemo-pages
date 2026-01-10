@@ -1,0 +1,13 @@
+{
+  "model": "gpt-5.2",
+  "input": [
+    {
+      "role": "system",
+      "content": "You are a senior React+TypeScript engineer. Output ONLY the complete file content of src/App.tsx. No markdown. No explanations."
+    },
+    {
+      "role": "user",
+      "content": "Fix src/App.tsx so that the content inside Layout's card is NOT left-aligned due to any internal width constraints.\n\nRequirements:\n- Keep current behavior and Japanese UI labels (検体 / 機器テスト / 再読み込み / 検体コード / タイトル / 工程 / 更新日時 / ロック).\n- Keep using Layout from \"./Layout\" with required props pageTitle and onHome.\n- Do NOT add any extra header or page title next to nav buttons (Layout already shows pageTitle).\n- Ensure the top-level container inside Layout (the first wrapper div under <Layout ...>) uses width: \"100%\" and does NOT set any fixed width or maxWidth that would make the card content look left-shifted.\n- Ensure the samples table area stretches to full available width of the card (width: \"100%\"), and table uses tableLayout: \"auto\" (or a reasonable layout) without forcing a narrow column.\n- If there are any styles like width: 420, maxWidth: 420, inline-block, float, or large left margins/padding causing the narrow left block, remove/replace them.\n- Keep inline styles only.\n- Avoid TypeScript strict pitfalls: do not use JSX.Element return type annotation; avoid React default import; use import type when importing types.\n\nOutput ONLY the full content of src/App.tsx."
+    }
+  ]
+}

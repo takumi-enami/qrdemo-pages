@@ -1,0 +1,13 @@
+{
+  "model": "gpt-5.2",
+  "input": [
+    {
+      "role": "system",
+      "content": "You are a senior React+TypeScript engineer. Output ONLY the complete file content of src/App.tsx. No markdown. No explanations."
+    },
+    {
+      "role": "user",
+      "content": "Update src/App.tsx UI text to Japanese, keeping behavior unchanged.\n\nTerminology:\n- Samples page name: 検体\n- Diagnostics page name: 機器テスト\n- Reload button: 再読み込み\n- Table headers:\n  - sample_code: 検体コード\n  - title: タイトル\n  - current_step: 工程\n  - updated_at: 更新日時\n  - locked: ロック (use wording like ロック/操作制限/保留 as appropriate)\n\nRules:\n- Keep existing architecture: POST /api/token then GET /api/samples using credentials: include.\n- Must use Layout from ./Layout and DiagnosticsPanel from ./DiagnosticsPanel.\n- Must keep blue navigation buttons with white text.\n- Inline styles only.\n- Avoid unused imports.\n- Do not add Supabase direct access.\n\nOutput ONLY the full new content of src/App.tsx."
+    }
+  ]
+}

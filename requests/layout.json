@@ -1,0 +1,69 @@
+{
+  "id": "resp_072e1274487d0e250069605bb84d508193bf5436623e039f53",
+  "object": "response",
+  "created_at": 1767922616,
+  "status": "completed",
+  "background": false,
+  "billing": {
+    "payer": "developer"
+  },
+  "completed_at": 1767922639,
+  "error": null,
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": null,
+  "max_tool_calls": null,
+  "model": "gpt-5.2-2025-12-11",
+  "output": [
+    {
+      "id": "msg_072e1274487d0e250069605bb8d45c81938e6b090019d4068c",
+      "type": "message",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "import React, { useEffect, useMemo, useState } from \"react\";\n\ntype MeResponse = {\n  display_name?: string | null;\n  email?: string | null;\n  identifier?: string | null;\n  id?: string | number | null;\n  username?: string | null;\n  name?: string | null;\n  user?: {\n    display_name?: string | null;\n    email?: string | null;\n    identifier?: string | null;\n    id?: string | number | null;\n    username?: string | null;\n    name?: string | null;\n  } | null;\n};\n\ntype LayoutProps = {\n  pageTitle: string;\n  onHome: () => void;\n  children: React.ReactNode;\n};\n\nfunction resolveAccountLabel(me: MeResponse | null): string {\n  if (!me) return \"(unknown)\";\n\n  const u = (me.user ?? null) as MeResponse[\"user\"] | null;\n\n  const candidates = [\n    me.display_name,\n    u?.display_name,\n    me.name,\n    u?.name,\n    me.username,\n    u?.username,\n    me.email,\n    u?.email,\n    me.identifier,\n    u?.identifier,\n    me.id != null ? String(me.id) : null,\n    u?.id != null ? String(u.id) : null,\n  ];\n\n  for (const c of candidates) {\n    const v = (c ?? \"\").toString().trim();\n    if (v) return v;\n  }\n  return \"(unknown)\";\n}\n\nexport default function Layout(props: LayoutProps) {\n  const { pageTitle, onHome, children } = props;\n\n  const [me, setMe] = useState<MeResponse | null>(null);\n\n  useEffect(() => {\n    let cancelled = false;\n\n    (async () => {\n      try {\n        const res = await fetch(\"/api/me\", { method: \"GET\", credentials: \"include\" });\n        if (!res.ok) throw new Error(`GET /api/me failed (${res.status})`);\n        const data = (await res.json()) as MeResponse;\n        if (!cancelled) setMe(data ?? null);\n      } catch {\n        if (!cancelled) setMe(null);\n      }\n    })();\n\n    return () => {\n      cancelled = true;\n    };\n  }, []);\n\n  const accountLabel = useMemo(() => resolveAccountLabel(me), [me]);\n\n  const styles: Record<string, React.CSSProperties> = {\n    root: {\n      minHeight: \"100vh\",\n      width: \"100%\",\n      background: \"#f6f7fb\",\n      color: \"#111827\",\n      fontFamily:\n        '-apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica, Arial, \"Apple Color Emoji\", \"Segoe UI Emoji\"',\n      display: \"flex\",\n      flexDirection: \"column\",\n    },\n    topBar: {\n      height: 56,\n      display: \"flex\",\n      alignItems: \"center\",\n      justifyContent: \"space-between\",\n      padding: \"0 16px\",\n      borderBottom: \"1px solid rgba(17,24,39,0.08)\",\n      background: \"#ffffff\",\n      boxSizing: \"border-box\",\n      position: \"sticky\",\n      top: 0,\n      zIndex: 10,\n    },\n    left: {\n      display: \"flex\",\n      alignItems: \"center\",\n      gap: 8,\n      minWidth: 120,\n    },\n    homeButton: {\n      appearance: \"none\",\n      border: \"none\",\n      background: \"transparent\",\n      padding: \"8px 10px\",\n      margin: 0,\n      cursor: \"pointer\",\n      borderRadius: 8,\n      fontSize: 15,\n      fontWeight: 700,\n      color: \"#111827\",\n      lineHeight: \"20px\",\n    },\n    right: {\n      display: \"flex\",\n      alignItems: \"center\",\n      justifyContent: \"flex-end\",\n      minWidth: 160,\n      gap: 8,\n    },\n    accountChip: {\n      maxWidth: 360,\n      padding: \"6px 10px\",\n      borderRadius: 999,\n      background: \"rgba(17,24,39,0.06)\",\n      border: \"1px solid rgba(17,24,39,0.08)\",\n      fontSize: 13,\n      color: \"#111827\",\n      overflow: \"hidden\",\n      textOverflow: \"ellipsis\",\n      whiteSpace: \"nowrap\",\n    },\n    main: {\n      flex: 1,\n      display: \"flex\",\n      justifyContent: \"center\",\n      padding: \"24px 16px 40px\",\n      boxSizing: \"border-box\",\n    },\n    card: {\n      width: \"100%\",\n      maxWidth: 980,\n      background: \"#ffffff\",\n      border: \"1px solid rgba(17,24,39,0.08)\",\n      borderRadius: 12,\n      boxShadow: \"0 8px 24px rgba(17,24,39,0.06)\",\n      padding: 20,\n      boxSizing: \"border-box\",\n    },\n    titleRow: {\n      display: \"flex\",\n      alignItems: \"baseline\",\n      justifyContent: \"space-between\",\n      marginBottom: 14,\n    },\n    pageTitle: {\n      margin: 0,\n      fontSize: 18,\n      fontWeight: 700,\n      lineHeight: \"24px\",\n      color: \"#111827\",\n    },\n    content: {\n      width: \"100%\",\n    },\n  };\n\n  return (\n    <div style={styles.root}>\n      <div style={styles.topBar}>\n        <div style={styles.left}>\n          <button\n            type=\"button\"\n            onClick={onHome}\n            style={styles.homeButton}\n            aria-label=\"Home\"\n            title=\"Home\"\n          >\n            QRDemo\n          </button>\n        </div>\n\n        <div style={styles.right}>\n          <div style={styles.accountChip} aria-label=\"Current account\" title={accountLabel}>\n            {accountLabel}\n          </div>\n        </div>\n      </div>\n\n      <div style={styles.main}>\n        <div style={styles.card}>\n          <div style={styles.titleRow}>\n            <h1 style={styles.pageTitle}>{pageTitle}</h1>\n          </div>\n          <div style={styles.content}>{children}</div>\n        </div>\n      </div>\n    </div>\n  );\n}"
+        }
+      ],
+      "role": "assistant"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": null,
+  "reasoning": {
+    "effort": "none",
+    "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": true,
+  "temperature": 1.0,
+  "text": {
+    "format": {
+      "type": "text"
+    },
+    "verbosity": "medium"
+  },
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 0.98,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 127,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 1364,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 1491
+  },
+  "user": null,
+  "metadata": {}
+}

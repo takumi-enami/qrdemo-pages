@@ -9,8 +9,22 @@
 
 ## APIs used by frontend
 - POST `/api/token` : establishes session cookie (use fetch with `credentials: 'include'`)
-- GET `/api/samples?limit=10` : returns JSON array of `sample` rows
+- GET `/api/samples?limit=10` : returns `{ ok: true, data: [...] }`
+- Error format: `{ ok: false, error: { code, message, details? } }`
 
 ## Notes
 - SPA routing is enabled on Pages.
 - `index.html` cache should not be stale (headers added).
+- `/api/*` should be handled by Workers on the same origin; Pages should only serve the frontend.
+
+## Deploy (Cloudflare Pages)
+```bash
+npm ci
+npm run build
+npx wrangler pages deploy dist --project-name qrdemo-pages
+```
+
+If the project name differs or is not created yet:
+```bash
+npx wrangler pages project list
+```
