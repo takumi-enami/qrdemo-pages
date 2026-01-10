@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { Link } from "react-router-dom";
+
 type MeResponse = {
   display_name?: string | null;
   email?: string | null;
@@ -27,7 +29,6 @@ function resolveAccountLabel(me: MeResponse | null): string {
   if (!me) return "(unknown)";
 
   const u = (me.user ?? null) as MeResponse["user"] | null;
-
   const candidates = [
     me.display_name,
     u?.display_name,
@@ -52,8 +53,9 @@ function resolveAccountLabel(me: MeResponse | null): string {
 
 export default function Layout(props: LayoutProps) {
   const { pageTitle, onHome, children } = props;
-
   const [me, setMe] = useState<MeResponse | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -74,7 +76,30 @@ export default function Layout(props: LayoutProps) {
     };
   }, []);
 
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onClick = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (menuRef.current && target && !menuRef.current.contains(target)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, [menuOpen]);
+
   const accountLabel = useMemo(() => resolveAccountLabel(me), [me]);
+
+  async function handleLogout() {
+    try {
+      await fetch("/api/logout", { method: "POST", credentials: "include" });
+    } catch {
+      // ignore logout failure
+    } finally {
+      setMenuOpen(false);
+      window.location.assign("/");
+    }
+  }
 
   const styles: Record<string, React.CSSProperties> = {
     root: {
@@ -82,13 +107,12 @@ export default function Layout(props: LayoutProps) {
       width: "100%",
       display: "flex",
       flexDirection: "column",
-      alignItems: "stretch",  // ←これを必ず（flex-start なら置換）
+      alignItems: "stretch",
       background: "#f6f7fb",
       color: "#111827",
       fontFamily:
         '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"',
     },
-
     topBar: {
       height: 56,
       display: "flex",
@@ -128,17 +152,45 @@ export default function Layout(props: LayoutProps) {
       minWidth: 160,
       gap: 8,
     },
-    accountChip: {
-      maxWidth: 360,
+    accountButton: {
+      appearance: "none",
+      border: "1px solid rgba(17,24,39,0.08)",
+      background: "rgba(17,24,39,0.06)",
       padding: "6px 10px",
       borderRadius: 999,
-      background: "rgba(17,24,39,0.06)",
-      border: "1px solid rgba(17,24,39,0.08)",
       fontSize: 13,
       color: "#111827",
+      maxWidth: 360,
       overflow: "hidden",
       textOverflow: "ellipsis",
       whiteSpace: "nowrap",
+      cursor: "pointer",
+    },
+    menu: {
+      position: "absolute",
+      top: "calc(100% + 8px)",
+      right: 0,
+      background: "#ffffff",
+      border: "1px solid rgba(17,24,39,0.1)",
+      borderRadius: 10,
+      boxShadow: "0 12px 28px rgba(15, 23, 42, 0.12)",
+      minWidth: 180,
+      padding: 6,
+      zIndex: 20,
+    },
+    menuItem: {
+      display: "flex",
+      alignItems: "center",
+      padding: "8px 10px",
+      borderRadius: 8,
+      fontSize: 13,
+      fontWeight: 600,
+      color: "#111827",
+      textDecoration: "none",
+      cursor: "pointer",
+    },
+    menuItemMuted: {
+      color: "#b91c1c",
     },
     main: {
       flex: 1,
@@ -152,7 +204,7 @@ export default function Layout(props: LayoutProps) {
     card: {
       width: "100%",
       maxWidth: 980,
-      margin: "0 auto",          // ←これ重要（flexでも効く）
+      margin: "0 auto",
       background: "#ffffff",
       border: "1px solid rgba(17,24,39,0.08)",
       borderRadius: 12,
@@ -160,7 +212,6 @@ export default function Layout(props: LayoutProps) {
       padding: 20,
       boxSizing: "border-box",
     },
-
     titleRow: {
       display: "flex",
       alignItems: "baseline",
@@ -183,20 +234,36 @@ export default function Layout(props: LayoutProps) {
     <div style={styles.root}>
       <div style={styles.topBar}>
         <div style={styles.left}>
-          <button
-            type="button"
-            onClick={onHome}
-            style={styles.homeButton}
-            aria-label="Home"
-            title="Home"
-          >
+          <button type="button" onClick={onHome} style={styles.homeButton} aria-label="Home" title="Home">
             QRDemo
           </button>
         </div>
 
         <div style={styles.right}>
-          <div style={styles.accountChip} aria-label="Current account" title={accountLabel}>
-            {accountLabel}
+          <div style={{ position: "relative" }} ref={menuRef}>
+            <button
+              type="button"
+              style={styles.accountButton}
+              aria-label="Current account"
+              title={accountLabel}
+              onClick={() => setMenuOpen((prev) => !prev)}
+            >
+              {accountLabel}
+            </button>
+            {menuOpen ? (
+              <div style={styles.menu}>
+                <Link to="/settings/devices" style={styles.menuItem} onClick={() => setMenuOpen(false)}>
+                  機器設定
+                </Link>
+                <button
+                  type="button"
+                  style={{ ...styles.menuItem, ...styles.menuItemMuted }}
+                  onClick={handleLogout}
+                >
+                  ログアウト
+                </button>
+              </div>
+            ) : null}
           </div>
         </div>
       </div>

@@ -1,4 +1,20 @@
 import { useMemo } from "react";
+import type { StepCode } from "./api";
+
+const STEP_LABELS: Record<StepCode, string> = {
+  RECEIVE: "受入",
+  PREP: "前処理",
+  WEIGH: "秤量",
+  ANALYZE: "分析",
+  REPORT: "報告",
+  CERTIFY: "証明",
+};
+
+export function stepLabel(step?: StepCode | string | null): string {
+  if (!step) return "";
+  const key = String(step) as StepCode;
+  return STEP_LABELS[key] ?? String(step);
+}
 
 export function useTableStyles() {
   return useMemo(() => {

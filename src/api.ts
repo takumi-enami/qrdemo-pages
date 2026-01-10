@@ -10,6 +10,14 @@ export type SampleRow = {
   version: number;
 };
 
+export type Station = {
+  id: string;
+  station_code: string;
+  name: string;
+  step: StepCode;
+  is_active: boolean;
+};
+
 export type Sample = {
   id: string;
   code: string;
@@ -23,12 +31,19 @@ export type Sample = {
 export type ApiOk<T> = { ok: true; data: T };
 export type ApiErr = { ok: false; error: { code: string; message: string; details?: unknown } };
 export type ApiResp<T> = ApiOk<T> | ApiErr;
+type ApiTransitionOk = { ok: true; sample: SampleRow; event?: unknown };
 
 export type StepActionBody = {
   station_id?: string | null;
-  note?: string | null;
+  note?: string;
   meta?: Record<string, unknown>;
   expected_version: number;
+};
+
+export type CreateSampleBody = {
+  sample_code: string;
+  title?: string | null;
+  id_uuid?: string | null;
 };
 
 export class ApiRequestError extends Error {
@@ -51,11 +66,13 @@ function isApiResp(value: unknown): value is ApiResp<unknown> {
   return false;
 }
 
-async function readJson(res: Response): Promise<unknown> {
+async function readBody(res: Response): Promise<{ json: unknown | null; text: string }> {
+  const text = await res.text();
+  if (!text) return { json: null, text: "" };
   try {
-    return await res.json();
+    return { json: JSON.parse(text), text };
   } catch {
-    return null;
+    return { json: null, text };
   }
 }
 
@@ -75,7 +92,8 @@ export function formatApiError(err: unknown): string {
   if (err instanceof ApiRequestError) {
     const parts = [err.message, err.status != null ? `status: ${err.status}` : null];
     if (err.body != null) {
-      parts.push(`body: ${JSON.stringify(err.body)}`);
+      const bodyText = typeof err.body === "string" ? err.body : JSON.stringify(err.body);
+      parts.push(`body: ${bodyText}`);
     }
     return parts.filter(Boolean).join("\n");
   }
@@ -85,34 +103,59 @@ export function formatApiError(err: unknown): string {
 
 async function apiFetch<T>(path: string, init: RequestInit): Promise<T> {
   const res = await fetch(path, { ...init, credentials: "include" });
-  const body = await readJson(res);
+  const { json, text } = await readBody(res);
+  const body = json ?? (text ? text : null);
 
   if (!res.ok) {
     throw new ApiRequestError(`HTTP ${res.status}`, res.status, body);
   }
-  if (!isApiResp(body)) {
+  if (!json || !isApiResp(json)) {
     throw new ApiRequestError("Unexpected API response", res.status, body);
   }
-  if (!body.ok) {
-    throw new ApiRequestError(`${body.error.code}: ${body.error.message}`, res.status, body);
+  if (!json.ok) {
+    throw new ApiRequestError(`${json.error.code}: ${json.error.message}`, res.status, json);
   }
-  return body.data as T;
+  return json.data as T;
+}
+
+async function apiFetchTransition(path: string, init: RequestInit): Promise<SampleRow> {
+  const res = await fetch(path, { ...init, credentials: "include" });
+  const { json, text } = await readBody(res);
+  const body = json ?? (text ? text : null);
+
+  if (!res.ok) {
+    throw new ApiRequestError(`HTTP ${res.status}`, res.status, body);
+  }
+  if (!json || typeof json !== "object" || !("ok" in json)) {
+    throw new ApiRequestError("Unexpected API response", res.status, body);
+  }
+  const ok = (json as { ok?: unknown }).ok;
+  if (ok === false) {
+    const err = (json as ApiErr).error;
+    throw new ApiRequestError(`${err.code}: ${err.message}`, res.status, json);
+  }
+  const payload = json as ApiTransitionOk;
+  if (!payload.sample) {
+    throw new ApiRequestError("Unexpected API response", res.status, json);
+  }
+  return payload.sample;
 }
 
 export async function ensureToken(): Promise<void> {
   const res = await fetch("/api/token", { method: "POST", credentials: "include" });
-  const body = await readJson(res);
+  const { json, text } = await readBody(res);
+  const body = json ?? (text ? text : null);
 
   if (!res.ok) {
     throw new ApiRequestError(`HTTP ${res.status}`, res.status, body);
   }
-  if (!body || typeof body !== "object" || !("ok" in body)) {
+  if (!json || typeof json !== "object" || !("ok" in json)) {
     throw new ApiRequestError("Unexpected token response", res.status, body);
   }
-  const ok = (body as { ok?: unknown }).ok;
+  const ok = (json as { ok?: unknown }).ok;
   if (ok === false) {
-    const err = (body as ApiErr).error;
-    throw new ApiRequestError(`${err.code}: ${err.message}`, res.status, body);
+    const err = (json as ApiErr).error;
+    throw new ApiRequestError(`${err.code}: ${err.message}`, res.status, json);
   }
   if (ok !== true) {
     throw new ApiRequestError("Unexpected token response", res.status, body);
@@ -130,9 +173,28 @@ export async function getSamples(params: { limit?: number; step?: StepCode } = {
   return safeRows.map(mapSample);
 }
 
+export async function getStations(step?: StepCode): Promise<Station[]> {
+  await ensureToken();
+  const qs = new URLSearchParams();
+  if (step) qs.set("step", step);
+  const url = qs.toString() ? `/api/stations?${qs.toString()}` : "/api/stations";
+  const rows = await apiFetch<Station[]>(url, { method: "GET" });
+  return Array.isArray(rows) ? rows : [];
+}
+
+export async function createSample(body: CreateSampleBody): Promise<Sample> {
+  await ensureToken();
+  const data = await apiFetch<SampleRow>("/api/samples", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return mapSample(data);
+}
+
 export async function advanceSample(id: string, body: StepActionBody): Promise<Sample> {
   await ensureToken();
-  const data = await apiFetch<SampleRow>(`/api/samples/${id}/advance`, {
+  const data = await apiFetchTransition(`/api/samples/${id}/advance`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -142,10 +204,14 @@ export async function advanceSample(id: string, body: StepActionBody): Promise<S
 
 export async function rollbackSample(id: string, body: StepActionBody): Promise<Sample> {
   await ensureToken();
-  const data = await apiFetch<SampleRow>(`/api/samples/${id}/rollback`, {
+  const data = await apiFetchTransition(`/api/samples/${id}/rollback`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
   return mapSample(data);
+}
+
+export async function logout(): Promise<void> {
+  await fetch("/api/logout", { method: "POST", credentials: "include" });
 }

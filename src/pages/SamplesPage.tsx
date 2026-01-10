@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import PageShell from "../PageShell";
 import { formatApiError, getSamples, type Sample } from "../api";
-import { useTableStyles } from "../ui";
+import { stepLabel, useTableStyles } from "../ui";
 
 export default function SamplesPage() {
   const styles = useTableStyles();
@@ -87,7 +87,7 @@ export default function SamplesPage() {
                 <th style={styles.th}>工程</th>
                 <th style={styles.th}>更新日時</th>
                 <th style={styles.th}>ロック</th>
-                <th style={styles.th}>版数</th>
+                <th style={styles.th}>更新回数</th>
               </tr>
             </thead>
             <tbody>
@@ -101,7 +101,7 @@ export default function SamplesPage() {
 
               {samples.map((s) => {
                 const updated = formatUpdatedAt(s.updated_at);
-                const stepText = (s.current_step ?? "").trim();
+                const stepText = stepLabel(s.current_step);
                 const isLocked = Boolean(s.locked);
                 return (
                   <tr

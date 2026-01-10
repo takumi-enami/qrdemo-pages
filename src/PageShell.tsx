@@ -15,7 +15,6 @@ const navItems: NavItem[] = [
   { label: "分析", to: "/analyze" },
   { label: "報告", to: "/report" },
   { label: "証明", to: "/certify" },
-  { label: "診断", to: "/diagnostics" },
 ];
 
 type PageShellProps = {

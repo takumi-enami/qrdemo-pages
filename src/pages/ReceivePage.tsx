@@ -1,24 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
+import { QRCodeCanvas } from "qrcode.react";
 import PageShell from "../PageShell";
 import {
   advanceSample,
+  createSample,
   formatApiError,
   getSamples,
   getStations,
   rollbackSample,
   type Sample,
   type Station,
-  type StepCode,
 } from "../api";
 import { stepLabel, useTableStyles } from "../ui";
 
-type StepPageProps = {
-  step: StepCode;
-  title: string;
-};
-
-export default function StepPage(props: StepPageProps) {
-  const { step, title } = props;
+export default function ReceivePage() {
+  const step = "RECEIVE";
   const styles = useTableStyles();
   const [loading, setLoading] = useState<boolean>(false);
   const [stationLoading, setStationLoading] = useState<boolean>(false);
@@ -30,6 +26,13 @@ export default function StepPage(props: StepPageProps) {
   const [samples, setSamples] = useState<Sample[]>([]);
   const [stations, setStations] = useState<Station[]>([]);
   const [stationId, setStationId] = useState<string>("");
+  const [showCreate, setShowCreate] = useState<boolean>(false);
+  const [sampleCode, setSampleCode] = useState<string>("");
+  const [title, setTitle] = useState<string>("");
+  const [inputUuid, setInputUuid] = useState<string>("");
+  const [createError, setCreateError] = useState<string>("");
+  const [created, setCreated] = useState<Sample | null>(null);
+  const [copyMessage, setCopyMessage] = useState<string>("");
 
   async function fetchSamples() {
     setLoading(true);
@@ -50,10 +53,8 @@ export default function StepPage(props: StepPageProps) {
     try {
       const data = await getStations(step);
       setStations(data);
-      if (data.length > 0) {
+      if (!stationId && data.length > 0) {
         setStationId(data[0].id);
-      } else {
-        setStationId("");
       }
     } catch (e) {
       setActionError(formatApiError(e));
@@ -67,7 +68,7 @@ export default function StepPage(props: StepPageProps) {
   useEffect(() => {
     fetchSamples();
     fetchStationsList();
-  }, [step]);
+  }, []);
 
   const formatUpdatedAt = (v: Sample["updated_at"]) => {
     if (v == null) return "";
@@ -138,10 +139,45 @@ export default function StepPage(props: StepPageProps) {
     }
   }
 
+  async function handleCreate() {
+    setCreateError("");
+    setCreated(null);
+    setCopyMessage("");
+    const trimmedCode = sampleCode.trim();
+    if (!trimmedCode) {
+      setCreateError("検体コードは必須です。");
+      return;
+    }
+    try {
+      const data = await createSample({
+        sample_code: trimmedCode,
+        title: title.trim() ? title.trim() : null,
+        id_uuid: inputUuid.trim() ? inputUuid.trim() : null,
+      });
+      setCreated(data);
+      setSampleCode("");
+      setTitle("");
+      setInputUuid("");
+      await fetchSamples();
+    } catch (e) {
+      setCreateError(formatApiError(e));
+    }
+  }
+
+  async function handleCopy(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopyMessage("コピーしました");
+    } catch {
+      setCopyMessage("コピーに失敗しました");
+    }
+    window.setTimeout(() => setCopyMessage(""), 1500);
+  }
+
   const canAct = Boolean(stationId) && !stationLoading;
 
   return (
-    <PageShell title={title}>
+    <PageShell title="受入">
       <div style={styles.container}>
         <div style={styles.topBar}>
           <div style={styles.navGroup}>
@@ -161,6 +197,13 @@ export default function StepPage(props: StepPageProps) {
               }}
             >
               再読み込み
+            </button>
+            <button
+              type="button"
+              style={styles.buttonSecondary}
+              onClick={() => setShowCreate((prev) => !prev)}
+            >
+              新規
             </button>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
@@ -203,6 +246,61 @@ export default function StepPage(props: StepPageProps) {
             </label>
           </div>
         </div>
+
+        {showCreate ? (
+          <div style={{ marginBottom: 16, padding: 12, border: "1px solid #e5e7eb", borderRadius: 10 }}>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+              <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12 }}>
+                検体コード (必須)
+                <input
+                  value={sampleCode}
+                  onChange={(e) => setSampleCode(e.target.value)}
+                  placeholder="S-0001"
+                  style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #d1d5db", minWidth: 200 }}
+                />
+              </label>
+              <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12 }}>
+                タイトル (任意)
+                <input
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="検体タイトル"
+                  style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #d1d5db", minWidth: 240 }}
+                />
+              </label>
+              <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12 }}>
+                UUID (任意)
+                <input
+                  value={inputUuid}
+                  onChange={(e) => setInputUuid(e.target.value)}
+                  placeholder="既存QRのUUIDを貼り付け"
+                  style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #d1d5db", minWidth: 280 }}
+                />
+              </label>
+              <button type="button" style={styles.button} onClick={handleCreate}>
+                作成
+              </button>
+            </div>
+            {createError ? <div style={{ ...styles.errorBox, marginTop: 10 }}>{createError}</div> : null}
+            {created ? (
+              <div style={{ marginTop: 12, display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
+                <div>
+                  <div style={{ fontSize: 12, color: "#6b7280" }}>作成されたUUID</div>
+                  <div style={{ fontFamily: styles.codeText.fontFamily, fontSize: 13 }}>{created.id}</div>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy(created.id)}
+                    style={{ marginTop: 6, ...styles.buttonGhost }}
+                  >
+                    コピー
+                  </button>
+                  {copyMessage ? <div style={{ fontSize: 12, color: "#16a34a" }}>{copyMessage}</div> : null}
+                </div>
+                <QRCodeCanvas value={created.id} size={160} />
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         <div style={styles.hintRow}>
           <span style={styles.statusPill}>
