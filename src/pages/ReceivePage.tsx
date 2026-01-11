@@ -9,7 +9,6 @@ import {
   getStations,
   rollbackSample,
   type Sample,
-  type Station,
 } from "../api";
 import { stepLabel, useTableStyles } from "../ui";
 
