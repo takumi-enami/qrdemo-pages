@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { QRCodeCanvas } from "qrcode.react";
 import PageShell from "../PageShell";
 import {
   advanceSample,
@@ -7,6 +6,7 @@ import {
   formatApiError,
   getSamples,
   getStations,
+  printSample,
   rollbackSample,
   type Sample,
 } from "../api";
@@ -27,9 +27,12 @@ export default function ReceivePage() {
   const [sampleCode, setSampleCode] = useState<string>("");
   const [title, setTitle] = useState<string>("");
   const [inputUuid, setInputUuid] = useState<string>("");
+  const [createLoading, setCreateLoading] = useState<boolean>(false);
   const [createError, setCreateError] = useState<string>("");
-  const [created, setCreated] = useState<Sample | null>(null);
-  const [copyMessage, setCopyMessage] = useState<string>("");
+  const [createMessage, setCreateMessage] = useState<string>("");
+  const [createPrintError, setCreatePrintError] = useState<string>("");
+  const [createdSample, setCreatedSample] = useState<Sample | null>(null);
+  const [printLoadingId, setPrintLoadingId] = useState<string | null>(null);
 
   async function fetchSamples() {
     setLoading(true);
@@ -131,38 +134,79 @@ export default function ReceivePage() {
   }
 
   async function handleCreate() {
+    if (createLoading) return;
     setCreateError("");
-    setCreated(null);
-    setCopyMessage("");
+    setCreateMessage("");
+    setCreatePrintError("");
+    setCreatedSample(null);
     const trimmedCode = sampleCode.trim();
     if (!trimmedCode) {
       setCreateError("検体コードは必須です。");
       return;
     }
+    setCreateLoading(true);
+    const trimmedUuid = inputUuid.trim();
     try {
       const data = await createSample({
         sample_code: trimmedCode,
         title: title.trim() ? title.trim() : null,
-        id_uuid: inputUuid.trim() ? inputUuid.trim() : null,
+        existing_uuid: trimmedUuid ? trimmedUuid : null,
       });
-      setCreated(data);
+      setCreatedSample(data.sample);
       setSampleCode("");
       setTitle("");
       setInputUuid("");
+      if (trimmedUuid) {
+        setCreateMessage("登録しました（既存UUIDのため印刷なし）。");
+      } else if (data.printed) {
+        setCreateMessage("印刷しました。");
+      } else {
+        setCreateMessage("登録しました。");
+        setCreatePrintError(data.print_error ?? "印刷に失敗しました。");
+      }
       await fetchSamples();
     } catch (e) {
       setCreateError(formatApiError(e));
+    } finally {
+      setCreateLoading(false);
     }
   }
 
-  async function handleCopy(text: string) {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopyMessage("コピーしました");
-    } catch {
-      setCopyMessage("コピーに失敗しました");
+  async function handlePrint(sample: Sample, context: "create" | "list") {
+    if (printLoadingId) return;
+    setActionError("");
+    setMessage("");
+    if (context === "create") {
+      setCreateMessage("");
+      setCreatePrintError("");
     }
-    window.setTimeout(() => setCopyMessage(""), 1500);
+    setPrintLoadingId(sample.id);
+    try {
+      const result = await printSample(sample.id);
+      if (result.printed) {
+        if (context === "create") {
+          setCreateMessage("再印刷しました。");
+        } else {
+          setMessage(`印刷しました: ${sample.code}`);
+        }
+      } else {
+        const err = result.print_error ?? "印刷に失敗しました。";
+        if (context === "create") {
+          setCreatePrintError(err);
+        } else {
+          setActionError(err);
+        }
+      }
+    } catch (e) {
+      const err = formatApiError(e);
+      if (context === "create") {
+        setCreatePrintError(err);
+      } else {
+        setActionError(err);
+      }
+    } finally {
+      setPrintLoadingId(null);
+    }
   }
 
   const canAct = Boolean(stationId) && !stationLoading;
@@ -229,26 +273,45 @@ export default function ReceivePage() {
                   style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #d1d5db", minWidth: 280 }}
                 />
               </label>
-              <button type="button" style={styles.button} onClick={handleCreate}>
+              <button
+                type="button"
+                style={{
+                  ...styles.button,
+                  ...(createLoading ? styles.buttonDisabled : null),
+                }}
+                onClick={handleCreate}
+                disabled={createLoading}
+              >
                 作成
               </button>
             </div>
             {createError ? <div style={{ ...styles.errorBox, marginTop: 10 }}>{createError}</div> : null}
-            {created ? (
-              <div style={{ marginTop: 12, display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
-                <div>
-                  <div style={{ fontSize: 12, color: "#6b7280" }}>作成されたUUID</div>
-                  <div style={{ fontFamily: styles.codeText.fontFamily, fontSize: 13 }}>{created.id}</div>
+            {createMessage ? <div style={{ ...styles.successBox, marginTop: 10 }}>{createMessage}</div> : null}
+            {createPrintError ? (
+              <div
+                style={{
+                  ...styles.errorBox,
+                  marginTop: 10,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 8,
+                }}
+              >
+                <span>印刷エラー: {createPrintError}</span>
+                {createdSample ? (
                   <button
                     type="button"
-                    onClick={() => handleCopy(created.id)}
-                    style={{ marginTop: 6, ...styles.buttonGhost }}
+                    style={{
+                      ...styles.buttonGhost,
+                      ...(printLoadingId === createdSample.id ? styles.buttonDisabled : null),
+                    }}
+                    onClick={() => handlePrint(createdSample, "create")}
+                    disabled={printLoadingId === createdSample.id}
                   >
-                    コピー
+                    再印刷
                   </button>
-                  {copyMessage ? <div style={{ fontSize: 12, color: "#16a34a" }}>{copyMessage}</div> : null}
-                </div>
-                <QRCodeCanvas value={created.id} size={160} />
+                ) : null}
               </div>
             ) : null}
           </div>
@@ -302,6 +365,7 @@ export default function ReceivePage() {
                 const stepText = stepLabel(s.current_step);
                 const isLocked = Boolean(s.locked);
                 const isBusy = actionLoadingId === s.id;
+                const isPrinting = printLoadingId === s.id;
                 return (
                   <tr
                     key={s.id}
@@ -358,6 +422,17 @@ export default function ReceivePage() {
                           disabled={isBusy || !canAct}
                         >
                           {actionButtons.rollback}
+                        </button>
+                        <button
+                          type="button"
+                          style={{
+                            ...styles.buttonGhost,
+                            ...(isPrinting ? styles.buttonDisabled : null),
+                          }}
+                          onClick={() => handlePrint(s, "list")}
+                          disabled={isPrinting}
+                        >
+                          再印刷
                         </button>
                       </div>
                     </td>

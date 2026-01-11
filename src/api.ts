@@ -43,7 +43,21 @@ export type StepActionBody = {
 export type CreateSampleBody = {
   sample_code: string;
   title?: string | null;
+  existing_uuid?: string | null;
   id_uuid?: string | null;
+  uuid?: string | null;
+};
+
+export type PrintResult = {
+  sample: Sample;
+  printed: boolean;
+  print_error: string | null;
+};
+
+type PrintResultRow = {
+  sample: SampleRow;
+  printed: boolean;
+  print_error: string | null;
 };
 
 export class ApiRequestError extends Error {
@@ -182,14 +196,31 @@ export async function getStations(step?: StepCode): Promise<Station[]> {
   return Array.isArray(rows) ? rows : [];
 }
 
-export async function createSample(body: CreateSampleBody): Promise<Sample> {
+export async function createSample(body: CreateSampleBody): Promise<PrintResult> {
   await ensureToken();
-  const data = await apiFetch<SampleRow>("/api/samples", {
+  const data = await apiFetch<PrintResultRow>("/api/samples", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  return mapSample(data);
+  return {
+    sample: mapSample(data.sample),
+    printed: data.printed,
+    print_error: data.print_error ?? null,
+  };
+}
+
+export async function printSample(id: string): Promise<PrintResult> {
+  await ensureToken();
+  const data = await apiFetch<PrintResultRow>(`/api/samples/${id}/print`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+  });
+  return {
+    sample: mapSample(data.sample),
+    printed: data.printed,
+    print_error: data.print_error ?? null,
+  };
 }
 
 export async function advanceSample(id: string, body: StepActionBody): Promise<Sample> {
