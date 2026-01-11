@@ -22,9 +22,7 @@ export default function ReceivePage() {
   const [error, setError] = useState<string>("");
   const [actionError, setActionError] = useState<string>("");
   const [message, setMessage] = useState<string>("");
-  const [note, setNote] = useState<string>("");
   const [samples, setSamples] = useState<Sample[]>([]);
-  const [stations, setStations] = useState<Station[]>([]);
   const [stationId, setStationId] = useState<string>("");
   const [showCreate, setShowCreate] = useState<boolean>(false);
   const [sampleCode, setSampleCode] = useState<string>("");
@@ -52,13 +50,11 @@ export default function ReceivePage() {
     setStationLoading(true);
     try {
       const data = await getStations(step);
-      setStations(data);
       if (!stationId && data.length > 0) {
         setStationId(data[0].id);
       }
     } catch (e) {
       setActionError(formatApiError(e));
-      setStations([]);
       setStationId("");
     } finally {
       setStationLoading(false);
@@ -96,13 +92,11 @@ export default function ReceivePage() {
     }
     setActionLoadingId(sample.id);
     try {
-      const trimmedNote = note.trim();
       const body: { station_id: string; expected_version: number; meta: Record<string, unknown>; note?: string } = {
         station_id: stationId,
         expected_version: sample.version,
         meta: {},
       };
-      if (trimmedNote) body.note = trimmedNote;
       const updated = await advanceSample(sample.id, body);
       setMessage(`Advance OK: ${updated.code} → ${stepLabel(updated.current_step)} (更新回数 ${updated.version})`);
       await fetchSamples();
@@ -122,13 +116,11 @@ export default function ReceivePage() {
     }
     setActionLoadingId(sample.id);
     try {
-      const trimmedNote = note.trim();
       const body: { station_id: string; expected_version: number; meta: Record<string, unknown>; note?: string } = {
         station_id: stationId,
         expected_version: sample.version,
         meta: {},
       };
-      if (trimmedNote) body.note = trimmedNote;
       const updated = await rollbackSample(sample.id, body);
       setMessage(`Rollback OK: ${updated.code} → ${stepLabel(updated.current_step)} (更新回数 ${updated.version})`);
       await fetchSamples();
@@ -205,45 +197,6 @@ export default function ReceivePage() {
             >
               新規
             </button>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#6b7280" }}>
-              ステーション
-              <select
-                value={stationId}
-                onChange={(e) => setStationId(e.target.value)}
-                disabled={stationLoading || stations.length === 0}
-                style={{
-                  padding: "6px 10px",
-                  borderRadius: 8,
-                  border: "1px solid #d1d5db",
-                  fontSize: 13,
-                  minWidth: 180,
-                }}
-              >
-                {stations.length === 0 ? <option value="">(未設定)</option> : null}
-                {stations.map((station) => (
-                  <option key={station.id} value={station.id}>
-                    {station.name} ({station.station_code})
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#6b7280" }}>
-              注記
-              <input
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="操作時のメモ"
-                style={{
-                  padding: "6px 10px",
-                  borderRadius: 8,
-                  border: "1px solid #d1d5db",
-                  fontSize: 13,
-                  width: 220,
-                }}
-              />
-            </label>
           </div>
         </div>
 
