@@ -1,19 +1,32 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import PageShell from "../PageShell";
-import { formatApiError, getSamples, type Sample } from "../api";
+import { formatApiError, getSamplesFiltered, type Sample } from "../api";
 import { stepLabel, useTableStyles } from "../ui";
 
 export default function SamplesPage() {
   const styles = useTableStyles();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
   const [samples, setSamples] = useState<Sample[]>([]);
+  const [sampleCode, setSampleCode] = useState<string>(searchParams.get("sample_code") ?? "");
+  const [title, setTitle] = useState<string>(searchParams.get("title") ?? "");
+  const [order, setOrder] = useState<"asc" | "desc">(searchParams.get("order") === "asc" ? "asc" : "desc");
 
-  async function fetchSamples() {
+  const sortLabel = useMemo(() => (order === "asc" ? "ASC" : "DESC"), [order]);
+
+  async function fetchSamples(next: { sampleCode: string; title: string; order: "asc" | "desc" }) {
     setLoading(true);
     setError("");
     try {
-      const data = await getSamples({ limit: 50 });
+      const data = await getSamplesFiltered({
+        limit: 50,
+        sample_code: next.sampleCode,
+        title: next.title,
+        sort: "updated_at",
+        order: next.order,
+      });
       setSamples(data);
     } catch (e) {
       setError(formatApiError(e));
@@ -24,8 +37,39 @@ export default function SamplesPage() {
   }
 
   useEffect(() => {
-    fetchSamples();
-  }, []);
+    const nextSampleCode = searchParams.get("sample_code") ?? "";
+    const nextTitle = searchParams.get("title") ?? "";
+    const nextOrder = searchParams.get("order") === "asc" ? "asc" : "desc";
+    setSampleCode(nextSampleCode);
+    setTitle(nextTitle);
+    setOrder(nextOrder);
+    fetchSamples({ sampleCode: nextSampleCode, title: nextTitle, order: nextOrder });
+  }, [searchParams]);
+
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      const next = new URLSearchParams();
+      if (sampleCode.trim()) next.set("sample_code", sampleCode.trim());
+      if (title.trim()) next.set("title", title.trim());
+      next.set("sort", "updated_at");
+      next.set("order", order);
+      setSearchParams(next, { replace: true });
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [sampleCode, title, order, setSearchParams]);
+
+  function handleRefresh() {
+    fetchSamples({ sampleCode, title, order });
+  }
+
+  function handleClear() {
+    setSampleCode("");
+    setTitle("");
+  }
+
+  function toggleOrder() {
+    setOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+  }
 
   const formatUpdatedAt = (v: Sample["updated_at"]) => {
     if (v == null) return "";
@@ -47,7 +91,7 @@ export default function SamplesPage() {
                 ...styles.button,
                 ...(loading ? styles.buttonDisabled : null),
               }}
-              onClick={() => fetchSamples()}
+              onClick={handleRefresh}
               disabled={loading}
               onMouseEnter={(e) => {
                 if (!loading) (e.currentTarget as HTMLButtonElement).style.background = styles.buttonHover.background;
@@ -57,6 +101,31 @@ export default function SamplesPage() {
               }}
             >
               再読み込み
+            </button>
+          </div>
+          <div style={styles.filterGroup}>
+            <input
+              type="text"
+              placeholder="Sample code"
+              value={sampleCode}
+              onChange={(e) => setSampleCode(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleRefresh();
+              }}
+              style={styles.filterInput}
+            />
+            <input
+              type="text"
+              placeholder="Title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleRefresh();
+              }}
+              style={{ ...styles.filterInput, ...styles.filterInputWide }}
+            />
+            <button type="button" style={styles.clearButton} onClick={handleClear}>
+              Clear
             </button>
           </div>
         </div>
@@ -85,7 +154,12 @@ export default function SamplesPage() {
                 <th style={styles.th}>検体コード</th>
                 <th style={styles.th}>タイトル</th>
                 <th style={styles.th}>工程</th>
-                <th style={styles.th}>更新日時</th>
+                <th style={styles.th}>
+                  <button type="button" style={styles.thButton} onClick={toggleOrder} disabled={loading}>
+                    <span>更新日時</span>
+                    <span style={styles.sortIndicator}>{sortLabel}</span>
+                  </button>
+                </th>
                 <th style={styles.th}>ロック</th>
                 <th style={styles.th}>更新回数</th>
               </tr>
@@ -114,10 +188,14 @@ export default function SamplesPage() {
                     }}
                   >
                     <td style={styles.td} title={s.code}>
-                      <span style={styles.codeText}>{s.code}</span>
+                      <Link to={`/samples/${s.id}`} style={styles.linkText}>
+                        <span style={styles.codeText}>{s.code}</span>
+                      </Link>
                     </td>
                     <td style={styles.td} title={s.title ?? ""}>
-                      <span style={styles.titleText}>{s.title ?? ""}</span>
+                      <Link to={`/samples/${s.id}`} style={styles.linkText}>
+                        <span style={styles.titleText}>{s.title ?? ""}</span>
+                      </Link>
                     </td>
                     <td style={styles.td} title={stepText}>
                       {stepText ? <span style={styles.badge}>{stepText}</span> : <span style={styles.mutedDash}>—</span>}

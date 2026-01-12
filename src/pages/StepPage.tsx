@@ -3,7 +3,7 @@ import PageShell from "../PageShell";
 import {
   advanceSample,
   formatApiError,
-  getSamples,
+  getSamplesFiltered,
   getStations,
   rollbackSample,
   type Sample,
@@ -27,12 +27,19 @@ export default function StepPage(props: StepPageProps) {
   const [message, setMessage] = useState<string>("");
   const [samples, setSamples] = useState<Sample[]>([]);
   const [stationId, setStationId] = useState<string>("");
+  const [sampleCode, setSampleCode] = useState<string>("");
+  const [titleFilter, setTitleFilter] = useState<string>("");
 
-  async function fetchSamples() {
+  async function fetchSamples(next: { sampleCode: string; title: string }) {
     setLoading(true);
     setError("");
     try {
-      const data = await getSamples({ limit: 50, step });
+      const data = await getSamplesFiltered({
+        limit: 50,
+        step,
+        sample_code: next.sampleCode,
+        title: next.title,
+      });
       setSamples(data);
     } catch (e) {
       setError(formatApiError(e));
@@ -60,9 +67,16 @@ export default function StepPage(props: StepPageProps) {
   }
 
   useEffect(() => {
-    fetchSamples();
+    fetchSamples({ sampleCode, title: titleFilter });
     fetchStationsList();
   }, [step]);
+
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      fetchSamples({ sampleCode, title: titleFilter });
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [sampleCode, titleFilter, step]);
 
   const formatUpdatedAt = (v: Sample["updated_at"]) => {
     if (v == null) return "";
@@ -97,7 +111,7 @@ export default function StepPage(props: StepPageProps) {
       };
       const updated = await advanceSample(sample.id, body);
       setMessage(`Advance OK: ${updated.code} → ${stepLabel(updated.current_step)} (更新回数 ${updated.version})`);
-      await fetchSamples();
+      await fetchSamples({ sampleCode, title: titleFilter });
     } catch (e) {
       setActionError(formatApiError(e));
     } finally {
@@ -121,7 +135,7 @@ export default function StepPage(props: StepPageProps) {
       };
       const updated = await rollbackSample(sample.id, body);
       setMessage(`Rollback OK: ${updated.code} → ${stepLabel(updated.current_step)} (更新回数 ${updated.version})`);
-      await fetchSamples();
+      await fetchSamples({ sampleCode, title: titleFilter });
     } catch (e) {
       setActionError(formatApiError(e));
     } finally {
@@ -142,7 +156,7 @@ export default function StepPage(props: StepPageProps) {
                 ...styles.button,
                 ...(loading ? styles.buttonDisabled : null),
               }}
-              onClick={() => fetchSamples()}
+              onClick={() => fetchSamples({ sampleCode, title: titleFilter })}
               disabled={loading}
               onMouseEnter={(e) => {
                 if (!loading) (e.currentTarget as HTMLButtonElement).style.background = styles.buttonHover.background;
@@ -152,6 +166,38 @@ export default function StepPage(props: StepPageProps) {
               }}
             >
               再読み込み
+            </button>
+          </div>
+          <div style={styles.filterGroup}>
+            <input
+              type="text"
+              placeholder="Sample code"
+              value={sampleCode}
+              onChange={(e) => setSampleCode(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") fetchSamples({ sampleCode, title: titleFilter });
+              }}
+              style={styles.filterInput}
+            />
+            <input
+              type="text"
+              placeholder="Title"
+              value={titleFilter}
+              onChange={(e) => setTitleFilter(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") fetchSamples({ sampleCode, title: titleFilter });
+              }}
+              style={{ ...styles.filterInput, ...styles.filterInputWide }}
+            />
+            <button
+              type="button"
+              style={styles.clearButton}
+              onClick={() => {
+                setSampleCode("");
+                setTitleFilter("");
+              }}
+            >
+              Clear
             </button>
           </div>
         </div>

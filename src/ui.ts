@@ -43,6 +43,34 @@ export function useTableStyles() {
         alignItems: "center",
         flexWrap: "wrap",
       } as const,
+      filterGroup: {
+        display: "flex",
+        gap: 8,
+        alignItems: "center",
+        flexWrap: "wrap",
+      } as const,
+      filterInput: {
+        border: `1px solid ${borderColor}`,
+        borderRadius: 8,
+        padding: "6px 10px",
+        fontSize: 13,
+        lineHeight: 1.3,
+        minWidth: 160,
+      } as const,
+      filterInputWide: {
+        minWidth: 220,
+      } as const,
+      clearButton: {
+        border: `1px solid ${borderColor}`,
+        borderRadius: 999,
+        padding: "6px 10px",
+        background: "white",
+        color: subtle,
+        cursor: "pointer",
+        fontSize: 12,
+        fontWeight: 700,
+        lineHeight: 1,
+      } as const,
       button: {
         border: "none",
         borderRadius: 8,
@@ -156,6 +184,26 @@ export function useTableStyles() {
         borderBottom: `1px solid ${borderColor}`,
         whiteSpace: "nowrap",
       } as const,
+      thButton: {
+        appearance: "none",
+        border: "none",
+        background: "transparent",
+        padding: 0,
+        margin: 0,
+        cursor: "pointer",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        fontSize: 12,
+        fontWeight: 700,
+        color: subtle,
+      } as const,
+      sortIndicator: {
+        color: blue,
+        fontSize: 11,
+        fontWeight: 800,
+        letterSpacing: 0.3,
+      } as const,
       td: {
         padding: "10px 12px",
         borderBottom: `1px solid ${borderColor}`,
@@ -185,6 +233,11 @@ export function useTableStyles() {
       } as const,
       titleText: {
         color: text,
+      } as const,
+      linkText: {
+        color: blue,
+        textDecoration: "none",
+        fontWeight: 600,
       } as const,
       emptyText: {
         color: subtle,

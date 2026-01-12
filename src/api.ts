@@ -12,6 +12,22 @@ export type SampleRow = {
   version: number;
 };
 
+export type SampleDetail = {
+  id: string;
+  org_id: string;
+  sample_code: string;
+  title: string | null;
+  current_step: StepCode;
+  locked: boolean | null;
+  last_rollback_to: StepCode | null;
+  last_rollback_reason: string | null;
+  last_rollback_at: string | null;
+  created_by: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  version: number;
+};
+
 export type Station = {
   id: string;
   station_code: string;
@@ -48,6 +64,22 @@ export type CreateSampleBody = {
   existing_uuid?: string | null;
   id_uuid?: string | null;
   uuid?: string | null;
+};
+
+export type SamplesQuery = {
+  limit?: number;
+  step?: StepCode;
+  q?: string;
+  sample_code?: string;
+  title?: string;
+  sort?: "updated_at";
+  order?: "asc" | "desc";
+};
+
+export type SampleUpdateBody = {
+  sample_code: string;
+  title?: string | null;
+  current_step: StepCode;
 };
 
 export type PrintResult = {
@@ -193,6 +225,44 @@ export async function getSamples(params: { limit?: number; step?: StepCode } = {
   const rows = await apiFetch<SampleRow[]>(url, { method: "GET" });
   const safeRows = Array.isArray(rows) ? rows : [];
   return safeRows.map(mapSample);
+}
+
+export async function getSamplesFiltered(params: SamplesQuery = {}): Promise<Sample[]> {
+  await ensureToken();
+  const qs = new URLSearchParams();
+  if (params.limit != null) qs.set("limit", String(params.limit));
+  if (params.step) qs.set("step", params.step);
+  if (params.sort) qs.set("sort", params.sort);
+  if (params.order) qs.set("order", params.order);
+  const q = params.q?.trim() ?? "";
+  const sampleCode = params.sample_code?.trim() ?? "";
+  const title = params.title?.trim() ?? "";
+  if (q) qs.set("q", q);
+  if (sampleCode) qs.set("sample_code", sampleCode);
+  if (title) qs.set("title", title);
+  const url = qs.toString() ? `/api/samples?${qs.toString()}` : "/api/samples";
+  const rows = await apiFetch<SampleRow[]>(url, { method: "GET" });
+  const safeRows = Array.isArray(rows) ? rows : [];
+  return safeRows.map(mapSample);
+}
+
+export async function getSampleById(id: string): Promise<SampleDetail> {
+  await ensureToken();
+  return apiFetch<SampleDetail>(`/api/samples/${id}`, { method: "GET" });
+}
+
+export async function updateSample(id: string, body: SampleUpdateBody): Promise<SampleDetail> {
+  await ensureToken();
+  return apiFetch<SampleDetail>(`/api/samples/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export async function deleteSample(id: string): Promise<void> {
+  await ensureToken();
+  await apiFetch<{ id: string }>(`/api/samples/${id}`, { method: "DELETE" });
 }
 
 export async function getStations(step?: StepCode): Promise<Station[]> {

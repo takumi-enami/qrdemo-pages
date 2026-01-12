@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import ReceivePage from "./pages/ReceivePage";
+import SampleDetailPage from "./pages/SampleDetailPage";
 import SamplesPage from "./pages/SamplesPage";
 import SettingsDevicesPage from "./pages/SettingsDevicesPage";
 import SettingsDiagnosticsPage from "./pages/SettingsDiagnosticsPage";
@@ -9,6 +10,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<SamplesPage />} />
+      <Route path="/samples/:id" element={<SampleDetailPage />} />
       <Route path="/receive" element={<ReceivePage />} />
       <Route path="/prep" element={<StepPage step="PREP" title="前処理" />} />
       <Route path="/weigh" element={<StepPage step="WEIGH" title="秤量" />} />
