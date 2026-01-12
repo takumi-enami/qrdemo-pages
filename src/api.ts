@@ -63,7 +63,7 @@ type PrintResultRow = {
 };
 
 type PrintPayload = {
-  qrText: string;
+  sampleId: string;
   title: string;
   copies?: number;
 };
@@ -218,39 +218,26 @@ export async function createSample(body: CreateSampleBody): Promise<PrintResult>
   };
 }
 
-export async function printSample(id: string): Promise<PrintResult> {
+export async function printSampleLabel(payload: PrintPayload): Promise<PrintResult> {
   await ensureToken();
-  const data = await apiFetch<PrintResultRow>(`/api/samples/${id}/print`, {
+  const qrText = payload.sampleId;
+  const qrBlob = await renderQrPngBlob(qrText, { size: 240, margin: 0 });
+  const file = new File([qrBlob], "qr.png", { type: "image/png" });
+  const form = new FormData();
+  form.set("title20", payload.title);
+  form.set("qr30", qrText);
+  form.set("copies", String(payload.copies ?? 1));
+  form.set("qr10", file, "qr.png");
+
+  const data = await apiFetch<PrintResultRow>(`/api/samples/${payload.sampleId}/print`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    body: form,
   });
   return {
     sample: mapSample(data.sample),
     printed: data.printed,
     print_error: data.print_error ?? null,
   };
-}
-
-type PrintProxyResponse = {
-  ok: true;
-};
-
-export async function printSampleLabel(payload: PrintPayload): Promise<void> {
-  await ensureToken();
-  const qrBlob = await renderQrPngBlob(payload.qrText, { size: 240, margin: 0 });
-  const file = new File([qrBlob], "qr.png", { type: "image/png" });
-  const form = new FormData();
-  form.append("qr10", file);
-  form.append("title20", payload.title);
-  form.append("qr30", payload.qrText);
-  if (payload.copies != null) {
-    form.append("copies", String(payload.copies));
-  }
-
-  await apiFetch<PrintProxyResponse>("/api/print", {
-    method: "POST",
-    body: form,
-  });
 }
 
 export async function advanceSample(id: string, body: StepActionBody): Promise<Sample> {

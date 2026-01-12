@@ -83,7 +83,6 @@ export default function ReceivePage() {
     return trimmed ? trimmed : sample.code;
   };
 
-  const getQrText = (sample: Sample) => sample.id;
 
   const actionButtons = useMemo(
     () => ({
@@ -141,7 +140,7 @@ export default function ReceivePage() {
     }
   }
 
-  async function handleCreate() {
+    async function handleCreate() {
     if (createLoading) return;
     setCreateError("");
     setCreateMessage("");
@@ -168,11 +167,16 @@ export default function ReceivePage() {
         setCreateMessage("登録しました（既存UUIDのため印刷なし）。");
       } else {
         try {
-          await printSampleLabel({
-            qrText: getQrText(data.sample),
+          const result = await printSampleLabel({
+            sampleId: data.sample.id,
             title: getPrintTitle(data.sample),
           });
-          setCreateMessage("印刷しました。");
+          if (result.printed) {
+            setCreateMessage("印刷しました。");
+          } else {
+            setCreateMessage("登録しました。");
+            setCreatePrintError(result.print_error ?? "印刷に失敗しました。");
+          }
         } catch (e) {
           setCreateMessage("登録しました。");
           setCreatePrintError(formatApiError(e) ?? "印刷に失敗しました。");
@@ -196,14 +200,23 @@ export default function ReceivePage() {
     }
     setPrintLoadingId(sample.id);
     try {
-      await printSampleLabel({
-        qrText: getQrText(sample),
+      const result = await printSampleLabel({
+        sampleId: sample.id,
         title: getPrintTitle(sample),
       });
-      if (context === "create") {
-        setCreateMessage("再印刷しました。");
+      if (result.printed) {
+        if (context === "create") {
+          setCreateMessage("再印刷しました。");
+        } else {
+          setMessage(`印刷しました: ${sample.code}`);
+        }
       } else {
-        setMessage(`印刷しました: ${sample.code}`);
+        const err = result.print_error ?? "印刷に失敗しました。";
+        if (context === "create") {
+          setCreatePrintError(err);
+        } else {
+          setActionError(err);
+        }
       }
     } catch (e) {
       const err = formatApiError(e);
