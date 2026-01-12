@@ -6,7 +6,7 @@ import {
   formatApiError,
   getSamples,
   getStations,
-  printSample,
+  printSampleLabel,
   rollbackSample,
   type Sample,
 } from "../api";
@@ -76,6 +76,14 @@ export default function ReceivePage() {
     if (Number.isNaN(d.getTime())) return s;
     return d.toLocaleString();
   };
+
+  const getPrintTitle = (sample: Sample) => {
+    const raw = sample.title ?? "";
+    const trimmed = raw.trim();
+    return trimmed ? trimmed : sample.code;
+  };
+
+  const getQrText = (sample: Sample) => sample.id;
 
   const actionButtons = useMemo(
     () => ({
@@ -158,11 +166,17 @@ export default function ReceivePage() {
       setInputUuid("");
       if (trimmedUuid) {
         setCreateMessage("登録しました（既存UUIDのため印刷なし）。");
-      } else if (data.printed) {
-        setCreateMessage("印刷しました。");
       } else {
-        setCreateMessage("登録しました。");
-        setCreatePrintError(data.print_error ?? "印刷に失敗しました。");
+        try {
+          await printSampleLabel({
+            qrText: getQrText(data.sample),
+            title: getPrintTitle(data.sample),
+          });
+          setCreateMessage("印刷しました。");
+        } catch (e) {
+          setCreateMessage("登録しました。");
+          setCreatePrintError(formatApiError(e) ?? "印刷に失敗しました。");
+        }
       }
       await fetchSamples();
     } catch (e) {
@@ -182,20 +196,14 @@ export default function ReceivePage() {
     }
     setPrintLoadingId(sample.id);
     try {
-      const result = await printSample(sample.id);
-      if (result.printed) {
-        if (context === "create") {
-          setCreateMessage("再印刷しました。");
-        } else {
-          setMessage(`印刷しました: ${sample.code}`);
-        }
+      await printSampleLabel({
+        qrText: getQrText(sample),
+        title: getPrintTitle(sample),
+      });
+      if (context === "create") {
+        setCreateMessage("再印刷しました。");
       } else {
-        const err = result.print_error ?? "印刷に失敗しました。";
-        if (context === "create") {
-          setCreatePrintError(err);
-        } else {
-          setActionError(err);
-        }
+        setMessage(`印刷しました: ${sample.code}`);
       }
     } catch (e) {
       const err = formatApiError(e);

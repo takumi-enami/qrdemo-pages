@@ -1,3 +1,5 @@
+import { renderQrPngBlob } from "./qr";
+
 export type StepCode = "RECEIVE" | "PREP" | "WEIGH" | "ANALYZE" | "REPORT" | "CERTIFY";
 
 export type SampleRow = {
@@ -58,6 +60,12 @@ type PrintResultRow = {
   sample: SampleRow;
   printed: boolean;
   print_error: string | null;
+};
+
+type PrintPayload = {
+  qrText: string;
+  title: string;
+  copies?: number;
 };
 
 export class ApiRequestError extends Error {
@@ -221,6 +229,28 @@ export async function printSample(id: string): Promise<PrintResult> {
     printed: data.printed,
     print_error: data.print_error ?? null,
   };
+}
+
+type PrintProxyResponse = {
+  ok: true;
+};
+
+export async function printSampleLabel(payload: PrintPayload): Promise<void> {
+  await ensureToken();
+  const qrBlob = await renderQrPngBlob(payload.qrText, { size: 240, margin: 0 });
+  const file = new File([qrBlob], "qr.png", { type: "image/png" });
+  const form = new FormData();
+  form.append("qr10", file);
+  form.append("title20", payload.title);
+  form.append("qr30", payload.qrText);
+  if (payload.copies != null) {
+    form.append("copies", String(payload.copies));
+  }
+
+  await apiFetch<PrintProxyResponse>("/api/print", {
+    method: "POST",
+    body: form,
+  });
 }
 
 export async function advanceSample(id: string, body: StepActionBody): Promise<Sample> {
