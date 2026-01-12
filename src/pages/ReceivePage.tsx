@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import PageShell from "../PageShell";
 import {
   advanceSample,
   createSample,
   formatApiError,
-  getSamples,
+  getSamplesFiltered,
   getStations,
   printSampleLabel,
   rollbackSample,
@@ -24,6 +25,9 @@ export default function ReceivePage() {
   const [samples, setSamples] = useState<Sample[]>([]);
   const [stationId, setStationId] = useState<string>("");
   const [showCreate, setShowCreate] = useState<boolean>(false);
+  const [filterId, setFilterId] = useState<string>("");
+  const [filterSampleCode, setFilterSampleCode] = useState<string>("");
+  const [filterTitle, setFilterTitle] = useState<string>("");
   const [sampleCode, setSampleCode] = useState<string>("");
   const [title, setTitle] = useState<string>("");
   const [inputUuid, setInputUuid] = useState<string>("");
@@ -34,11 +38,17 @@ export default function ReceivePage() {
   const [createdSample, setCreatedSample] = useState<Sample | null>(null);
   const [printLoadingId, setPrintLoadingId] = useState<string | null>(null);
 
-  async function fetchSamples() {
+  async function fetchSamples(next: { id: string; sampleCode: string; title: string }) {
     setLoading(true);
     setError("");
     try {
-      const data = await getSamples({ limit: 50, step });
+      const data = await getSamplesFiltered({
+        limit: 50,
+        step,
+        id: next.id,
+        sample_code: next.sampleCode,
+        title: next.title,
+      });
       setSamples(data);
     } catch (e) {
       setError(formatApiError(e));
@@ -64,9 +74,16 @@ export default function ReceivePage() {
   }
 
   useEffect(() => {
-    fetchSamples();
+    fetchSamples({ id: filterId, sampleCode: filterSampleCode, title: filterTitle });
     fetchStationsList();
   }, []);
+
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      fetchSamples({ id: filterId, sampleCode: filterSampleCode, title: filterTitle });
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [filterId, filterSampleCode, filterTitle]);
 
   const formatUpdatedAt = (v: Sample["updated_at"]) => {
     if (v == null) return "";
@@ -108,7 +125,7 @@ export default function ReceivePage() {
       };
       const updated = await advanceSample(sample.id, body);
       setMessage(`Advance OK: ${updated.code} → ${stepLabel(updated.current_step)} (更新回数 ${updated.version})`);
-      await fetchSamples();
+      await fetchSamples({ id: filterId, sampleCode: filterSampleCode, title: filterTitle });
     } catch (e) {
       setActionError(formatApiError(e));
     } finally {
@@ -132,7 +149,7 @@ export default function ReceivePage() {
       };
       const updated = await rollbackSample(sample.id, body);
       setMessage(`Rollback OK: ${updated.code} → ${stepLabel(updated.current_step)} (更新回数 ${updated.version})`);
-      await fetchSamples();
+      await fetchSamples({ id: filterId, sampleCode: filterSampleCode, title: filterTitle });
     } catch (e) {
       setActionError(formatApiError(e));
     } finally {
@@ -182,7 +199,7 @@ export default function ReceivePage() {
           setCreatePrintError(formatApiError(e) ?? "印刷に失敗しました。");
         }
       }
-      await fetchSamples();
+      await fetchSamples({ id: filterId, sampleCode: filterSampleCode, title: filterTitle });
     } catch (e) {
       setCreateError(formatApiError(e));
     } finally {
@@ -243,7 +260,7 @@ export default function ReceivePage() {
                 ...styles.button,
                 ...(loading ? styles.buttonDisabled : null),
               }}
-              onClick={() => fetchSamples()}
+              onClick={() => fetchSamples({ id: filterId, sampleCode: filterSampleCode, title: filterTitle })}
               disabled={loading}
               onMouseEnter={(e) => {
                 if (!loading) (e.currentTarget as HTMLButtonElement).style.background = styles.buttonHover.background;
@@ -260,6 +277,49 @@ export default function ReceivePage() {
               onClick={() => setShowCreate((prev) => !prev)}
             >
               新規
+            </button>
+          </div>
+          <div style={styles.filterGroup}>
+            <input
+              type="text"
+              placeholder="ID (UUID)"
+              value={filterId}
+              onChange={(e) => setFilterId(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") fetchSamples({ id: filterId, sampleCode: filterSampleCode, title: filterTitle });
+              }}
+              style={{ ...styles.filterInput, ...styles.filterInputWide }}
+            />
+            <input
+              type="text"
+              placeholder="Sample code"
+              value={filterSampleCode}
+              onChange={(e) => setFilterSampleCode(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") fetchSamples({ id: filterId, sampleCode: filterSampleCode, title: filterTitle });
+              }}
+              style={styles.filterInput}
+            />
+            <input
+              type="text"
+              placeholder="Title"
+              value={filterTitle}
+              onChange={(e) => setFilterTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") fetchSamples({ id: filterId, sampleCode: filterSampleCode, title: filterTitle });
+              }}
+              style={styles.filterInput}
+            />
+            <button
+              type="button"
+              style={styles.clearButton}
+              onClick={() => {
+                setFilterId("");
+                setFilterSampleCode("");
+                setFilterTitle("");
+              }}
+            >
+              Clear
             </button>
           </div>
         </div>
@@ -398,10 +458,14 @@ export default function ReceivePage() {
                     }}
                   >
                     <td style={styles.td} title={s.code}>
-                      <span style={styles.codeText}>{s.code}</span>
+                      <Link to={`/samples/${s.id}`} style={styles.linkText}>
+                        <span style={styles.codeText}>{s.code}</span>
+                      </Link>
                     </td>
                     <td style={styles.td} title={s.title ?? ""}>
-                      <span style={styles.titleText}>{s.title ?? ""}</span>
+                      <Link to={`/samples/${s.id}`} style={styles.linkText}>
+                        <span style={styles.titleText}>{s.title ?? ""}</span>
+                      </Link>
                     </td>
                     <td style={styles.td} title={stepText}>
                       {stepText ? <span style={styles.badge}>{stepText}</span> : <span style={styles.mutedDash}>—</span>}

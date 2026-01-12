@@ -3,9 +3,11 @@ import PageShell from "../PageShell";
 import {
   advanceSample,
   formatApiError,
+  getAppUser,
   getSamplesFiltered,
   getStations,
   rollbackSample,
+  updateSample,
   type Sample,
   type StepCode,
 } from "../api";
@@ -29,6 +31,7 @@ export default function StepPage(props: StepPageProps) {
   const [stationId, setStationId] = useState<string>("");
   const [sampleCode, setSampleCode] = useState<string>("");
   const [titleFilter, setTitleFilter] = useState<string>("");
+  const [appRole, setAppRole] = useState<string>("");
 
   async function fetchSamples(next: { sampleCode: string; title: string }) {
     setLoading(true);
@@ -72,6 +75,21 @@ export default function StepPage(props: StepPageProps) {
   }, [step]);
 
   useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const user = await getAppUser();
+        if (!cancelled) setAppRole(user.app_role ?? "");
+      } catch {
+        if (!cancelled) setAppRole("");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     const handle = setTimeout(() => {
       fetchSamples({ sampleCode, title: titleFilter });
     }, 300);
@@ -91,6 +109,8 @@ export default function StepPage(props: StepPageProps) {
     () => ({
       advance: "次へ進める",
       rollback: "戻す",
+      lock: "ロック",
+      unlock: "ロック解除",
     }),
     []
   );
@@ -143,7 +163,29 @@ export default function StepPage(props: StepPageProps) {
     }
   }
 
+  async function handleLockToggle(sample: Sample, locked: boolean) {
+    setActionError("");
+    setMessage("");
+    setActionLoadingId(sample.id);
+    try {
+      const payload = {
+        sample_code: sample.code,
+        title: sample.title ?? null,
+        current_step: sample.current_step,
+        locked,
+      };
+      const updated = await updateSample(sample.id, payload);
+      setMessage(`Lock OK: ${updated.sample_code} (${locked ? "locked" : "unlocked"})`);
+      await fetchSamples({ sampleCode, title: titleFilter });
+    } catch (e) {
+      setActionError(formatApiError(e));
+    } finally {
+      setActionLoadingId(null);
+    }
+  }
+
   const canAct = Boolean(stationId) && !stationLoading;
+  const canToggleLock = appRole === "admin" || appRole === "certifier";
 
   return (
     <PageShell title={title}>
@@ -250,6 +292,9 @@ export default function StepPage(props: StepPageProps) {
                 const stepText = stepLabel(s.current_step);
                 const isLocked = Boolean(s.locked);
                 const isBusy = actionLoadingId === s.id;
+                const isReportStep = s.current_step === "REPORT";
+                const showLock = isReportStep && !isLocked;
+                const showUnlock = step === "REPORT" && isLocked;
                 return (
                   <tr
                     key={s.id}
@@ -285,17 +330,47 @@ export default function StepPage(props: StepPageProps) {
                     <td style={styles.td}>{s.version}</td>
                     <td style={styles.td}>
                       <div style={{ display: "flex", gap: 8 }}>
-                        <button
-                          type="button"
-                          style={{
-                            ...styles.buttonGhost,
-                            ...(isBusy || !canAct ? styles.buttonDisabled : null),
-                          }}
-                          onClick={() => handleAdvance(s)}
-                          disabled={isBusy || !canAct}
-                        >
-                          {actionButtons.advance}
-                        </button>
+                        {!isReportStep ? (
+                          <button
+                            type="button"
+                            style={{
+                              ...styles.buttonGhost,
+                              ...(isBusy || !canAct ? styles.buttonDisabled : null),
+                            }}
+                            onClick={() => handleAdvance(s)}
+                            disabled={isBusy || !canAct}
+                          >
+                            {actionButtons.advance}
+                          </button>
+                        ) : null}
+                        {showLock ? (
+                          <button
+                            type="button"
+                            style={{
+                              ...styles.buttonGhost,
+                              ...(isBusy || !canToggleLock ? styles.buttonDisabled : null),
+                            }}
+                            onClick={() => handleLockToggle(s, true)}
+                            disabled={isBusy || !canToggleLock}
+                            title={!canToggleLock ? "No permission" : undefined}
+                          >
+                            {actionButtons.lock}
+                          </button>
+                        ) : null}
+                        {showUnlock ? (
+                          <button
+                            type="button"
+                            style={{
+                              ...styles.buttonGhost,
+                              ...(isBusy || !canToggleLock ? styles.buttonDisabled : null),
+                            }}
+                            onClick={() => handleLockToggle(s, false)}
+                            disabled={isBusy || !canToggleLock}
+                            title={!canToggleLock ? "No permission" : undefined}
+                          >
+                            {actionButtons.unlock}
+                          </button>
+                        ) : null}
                         <button
                           type="button"
                           style={{

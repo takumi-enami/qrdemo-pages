@@ -69,6 +69,7 @@ export type CreateSampleBody = {
 export type SamplesQuery = {
   limit?: number;
   step?: StepCode;
+  id?: string;
   q?: string;
   sample_code?: string;
   title?: string;
@@ -80,6 +81,16 @@ export type SampleUpdateBody = {
   sample_code: string;
   title?: string | null;
   current_step: StepCode;
+  locked?: boolean;
+};
+
+export type AppUser = {
+  app_user_id?: string;
+  org_id?: string;
+  app_role?: string;
+  email?: string;
+  display_name?: string | null;
+  is_new?: boolean;
 };
 
 export type PrintResult = {
@@ -216,6 +227,32 @@ export async function ensureToken(): Promise<void> {
   }
 }
 
+export async function getAppUser(): Promise<AppUser> {
+  const res = await fetch("/api/token", { method: "POST", credentials: "include" });
+  const { json, text } = await readBody(res);
+  const body = json ?? (text ? text : null);
+
+  if (!res.ok) {
+    throw new ApiRequestError(`HTTP ${res.status}`, res.status, body);
+  }
+  if (!json || typeof json !== "object" || !("ok" in json)) {
+    throw new ApiRequestError("Unexpected token response", res.status, body);
+  }
+  const ok = (json as { ok?: unknown }).ok;
+  if (ok === false) {
+    const err = (json as ApiErr).error;
+    throw new ApiRequestError(`${err.code}: ${err.message}`, res.status, json);
+  }
+  if (ok !== true || !("user" in json)) {
+    throw new ApiRequestError("Unexpected token response", res.status, body);
+  }
+  const user = (json as { user?: AppUser }).user;
+  if (!user || typeof user !== "object") {
+    throw new ApiRequestError("Unexpected token response", res.status, body);
+  }
+  return user;
+}
+
 export async function getSamples(params: { limit?: number; step?: StepCode } = {}): Promise<Sample[]> {
   await ensureToken();
   const qs = new URLSearchParams();
@@ -234,9 +271,11 @@ export async function getSamplesFiltered(params: SamplesQuery = {}): Promise<Sam
   if (params.step) qs.set("step", params.step);
   if (params.sort) qs.set("sort", params.sort);
   if (params.order) qs.set("order", params.order);
+  const id = params.id?.trim() ?? "";
   const q = params.q?.trim() ?? "";
   const sampleCode = params.sample_code?.trim() ?? "";
   const title = params.title?.trim() ?? "";
+  if (id) qs.set("id", id);
   if (q) qs.set("q", q);
   if (sampleCode) qs.set("sample_code", sampleCode);
   if (title) qs.set("title", title);

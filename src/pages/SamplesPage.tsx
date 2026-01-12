@@ -10,18 +10,20 @@ export default function SamplesPage() {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
   const [samples, setSamples] = useState<Sample[]>([]);
+  const [sampleId, setSampleId] = useState<string>(searchParams.get("id") ?? "");
   const [sampleCode, setSampleCode] = useState<string>(searchParams.get("sample_code") ?? "");
   const [title, setTitle] = useState<string>(searchParams.get("title") ?? "");
   const [order, setOrder] = useState<"asc" | "desc">(searchParams.get("order") === "asc" ? "asc" : "desc");
 
   const sortLabel = useMemo(() => (order === "asc" ? "ASC" : "DESC"), [order]);
 
-  async function fetchSamples(next: { sampleCode: string; title: string; order: "asc" | "desc" }) {
+  async function fetchSamples(next: { sampleId: string; sampleCode: string; title: string; order: "asc" | "desc" }) {
     setLoading(true);
     setError("");
     try {
       const data = await getSamplesFiltered({
         limit: 50,
+        id: next.sampleId,
         sample_code: next.sampleCode,
         title: next.title,
         sort: "updated_at",
@@ -37,18 +39,21 @@ export default function SamplesPage() {
   }
 
   useEffect(() => {
+    const nextSampleId = searchParams.get("id") ?? "";
     const nextSampleCode = searchParams.get("sample_code") ?? "";
     const nextTitle = searchParams.get("title") ?? "";
     const nextOrder = searchParams.get("order") === "asc" ? "asc" : "desc";
+    setSampleId(nextSampleId);
     setSampleCode(nextSampleCode);
     setTitle(nextTitle);
     setOrder(nextOrder);
-    fetchSamples({ sampleCode: nextSampleCode, title: nextTitle, order: nextOrder });
+    fetchSamples({ sampleId: nextSampleId, sampleCode: nextSampleCode, title: nextTitle, order: nextOrder });
   }, [searchParams]);
 
   useEffect(() => {
     const handle = setTimeout(() => {
       const next = new URLSearchParams();
+      if (sampleId.trim()) next.set("id", sampleId.trim());
       if (sampleCode.trim()) next.set("sample_code", sampleCode.trim());
       if (title.trim()) next.set("title", title.trim());
       next.set("sort", "updated_at");
@@ -56,13 +61,14 @@ export default function SamplesPage() {
       setSearchParams(next, { replace: true });
     }, 300);
     return () => clearTimeout(handle);
-  }, [sampleCode, title, order, setSearchParams]);
+  }, [sampleId, sampleCode, title, order, setSearchParams]);
 
   function handleRefresh() {
-    fetchSamples({ sampleCode, title, order });
+    fetchSamples({ sampleId, sampleCode, title, order });
   }
 
   function handleClear() {
+    setSampleId("");
     setSampleCode("");
     setTitle("");
   }
@@ -106,6 +112,16 @@ export default function SamplesPage() {
           <div style={styles.filterGroup}>
             <input
               type="text"
+              placeholder="ID (UUID)"
+              value={sampleId}
+              onChange={(e) => setSampleId(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleRefresh();
+              }}
+              style={{ ...styles.filterInput, ...styles.filterInputWide }}
+            />
+            <input
+              type="text"
               placeholder="Sample code"
               value={sampleCode}
               onChange={(e) => setSampleCode(e.target.value)}
@@ -122,7 +138,7 @@ export default function SamplesPage() {
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleRefresh();
               }}
-              style={{ ...styles.filterInput, ...styles.filterInputWide }}
+              style={styles.filterInput}
             />
             <button type="button" style={styles.clearButton} onClick={handleClear}>
               Clear
