@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import PageShell from "../PageShell";
 import {
   advanceSample,
@@ -29,17 +30,19 @@ export default function StepPage(props: StepPageProps) {
   const [message, setMessage] = useState<string>("");
   const [samples, setSamples] = useState<Sample[]>([]);
   const [stationId, setStationId] = useState<string>("");
+  const [sampleId, setSampleId] = useState<string>("");
   const [sampleCode, setSampleCode] = useState<string>("");
   const [titleFilter, setTitleFilter] = useState<string>("");
   const [appRole, setAppRole] = useState<string>("");
 
-  async function fetchSamples(next: { sampleCode: string; title: string }) {
+  async function fetchSamples(next: { sampleId: string; sampleCode: string; title: string }) {
     setLoading(true);
     setError("");
     try {
       const data = await getSamplesFiltered({
         limit: 50,
         step,
+        id: next.sampleId,
         sample_code: next.sampleCode,
         title: next.title,
       });
@@ -70,7 +73,7 @@ export default function StepPage(props: StepPageProps) {
   }
 
   useEffect(() => {
-    fetchSamples({ sampleCode, title: titleFilter });
+    fetchSamples({ sampleId, sampleCode, title: titleFilter });
     fetchStationsList();
   }, [step]);
 
@@ -91,10 +94,10 @@ export default function StepPage(props: StepPageProps) {
 
   useEffect(() => {
     const handle = setTimeout(() => {
-      fetchSamples({ sampleCode, title: titleFilter });
+      fetchSamples({ sampleId, sampleCode, title: titleFilter });
     }, 300);
     return () => clearTimeout(handle);
-  }, [sampleCode, titleFilter, step]);
+  }, [sampleId, sampleCode, titleFilter, step]);
 
   const formatUpdatedAt = (v: Sample["updated_at"]) => {
     if (v == null) return "";
@@ -131,7 +134,7 @@ export default function StepPage(props: StepPageProps) {
       };
       const updated = await advanceSample(sample.id, body);
       setMessage(`Advance OK: ${updated.code} → ${stepLabel(updated.current_step)} (更新回数 ${updated.version})`);
-      await fetchSamples({ sampleCode, title: titleFilter });
+      await fetchSamples({ sampleId, sampleCode, title: titleFilter });
     } catch (e) {
       setActionError(formatApiError(e));
     } finally {
@@ -155,7 +158,7 @@ export default function StepPage(props: StepPageProps) {
       };
       const updated = await rollbackSample(sample.id, body);
       setMessage(`Rollback OK: ${updated.code} → ${stepLabel(updated.current_step)} (更新回数 ${updated.version})`);
-      await fetchSamples({ sampleCode, title: titleFilter });
+      await fetchSamples({ sampleId, sampleCode, title: titleFilter });
     } catch (e) {
       setActionError(formatApiError(e));
     } finally {
@@ -176,7 +179,7 @@ export default function StepPage(props: StepPageProps) {
       };
       const updated = await updateSample(sample.id, payload);
       setMessage(`Lock OK: ${updated.sample_code} (${locked ? "locked" : "unlocked"})`);
-      await fetchSamples({ sampleCode, title: titleFilter });
+      await fetchSamples({ sampleId, sampleCode, title: titleFilter });
     } catch (e) {
       setActionError(formatApiError(e));
     } finally {
@@ -198,7 +201,7 @@ export default function StepPage(props: StepPageProps) {
                 ...styles.button,
                 ...(loading ? styles.buttonDisabled : null),
               }}
-              onClick={() => fetchSamples({ sampleCode, title: titleFilter })}
+              onClick={() => fetchSamples({ sampleId, sampleCode, title: titleFilter })}
               disabled={loading}
               onMouseEnter={(e) => {
                 if (!loading) (e.currentTarget as HTMLButtonElement).style.background = styles.buttonHover.background;
@@ -213,11 +216,21 @@ export default function StepPage(props: StepPageProps) {
           <div style={styles.filterGroup}>
             <input
               type="text"
+              placeholder="ID (UUID)"
+              value={sampleId}
+              onChange={(e) => setSampleId(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") fetchSamples({ sampleId, sampleCode, title: titleFilter });
+              }}
+              style={{ ...styles.filterInput, ...styles.filterInputWide }}
+            />
+            <input
+              type="text"
               placeholder="Sample code"
               value={sampleCode}
               onChange={(e) => setSampleCode(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") fetchSamples({ sampleCode, title: titleFilter });
+                if (e.key === "Enter") fetchSamples({ sampleId, sampleCode, title: titleFilter });
               }}
               style={styles.filterInput}
             />
@@ -227,7 +240,7 @@ export default function StepPage(props: StepPageProps) {
               value={titleFilter}
               onChange={(e) => setTitleFilter(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") fetchSamples({ sampleCode, title: titleFilter });
+                if (e.key === "Enter") fetchSamples({ sampleId, sampleCode, title: titleFilter });
               }}
               style={{ ...styles.filterInput, ...styles.filterInputWide }}
             />
@@ -235,6 +248,7 @@ export default function StepPage(props: StepPageProps) {
               type="button"
               style={styles.clearButton}
               onClick={() => {
+                setSampleId("");
                 setSampleCode("");
                 setTitleFilter("");
               }}
@@ -306,10 +320,14 @@ export default function StepPage(props: StepPageProps) {
                     }}
                   >
                     <td style={styles.td} title={s.code}>
-                      <span style={styles.codeText}>{s.code}</span>
+                      <Link to={`/samples/${s.id}`} style={styles.linkText}>
+                        <span style={styles.codeText}>{s.code}</span>
+                      </Link>
                     </td>
                     <td style={styles.td} title={s.title ?? ""}>
-                      <span style={styles.titleText}>{s.title ?? ""}</span>
+                      <Link to={`/samples/${s.id}`} style={styles.linkText}>
+                        <span style={styles.titleText}>{s.title ?? ""}</span>
+                      </Link>
                     </td>
                     <td style={styles.td} title={stepText}>
                       {stepText ? <span style={styles.badge}>{stepText}</span> : <span style={styles.mutedDash}>—</span>}
